@@ -5,12 +5,13 @@
 # See /LICENSE for more information.
 #
 include $(TOPDIR)/rules.mk
+include $(INCLUDE_DIR)/download.mk
 
 PKG_NAME:=make-ext4fs
 PKG_VERSION:=2015-05-01
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-PKG_SOURCE_URL:=http://git.openwrt.org/project/make_ext4fs.git
+PKG_SOURCE_URL:=$(PROJECT_GIT)/project/make_ext4fs.git
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_VERSION:=7c15bef6c732896d9ffb883fb1480fcd60c94a50
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)

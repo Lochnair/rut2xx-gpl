@@ -1,0 +1,43 @@
+#!/bin/sh /etc/rc.common
+
+# Copyright (C) 2014 Teltonika
+
+#. /lib/teltonika-functions.sh
+
+STOP=51
+SIERRA_VID="1199"
+SIERRA_PID="68C0"
+. /lib/led_functions.sh
+
+stop()
+{
+	all_off
+	killall -9 statusledctrl >/dev/null 2>&1
+	killall -9 rssileds >/dev/null 2>&1
+}
+
+start()
+{
+	enabled=`uci get -q system.@leds[0].enable`
+	if [ "$enabled" == "1" ]; then
+		vid=`uci get -q system.module.vid`
+		pid=`uci get -q system.module.pid`
+		killall -9 statusledctrl >/dev/null 2>&1
+		/usr/sbin/ledsman.sh start &
+		if [ "$vid" == "$SIERRA_VID" ] && [ "$pid" == "$SIERRA_PID" ] ; then
+			/usr/sbin/rssileds
+		fi
+	else
+		all_off
+		stop
+		echo 0 > /sys/class/leds/status_2g/brightness
+		echo 0 > /sys/class/leds/status_3g/brightness
+		echo 0 > /sys/class/leds/status_4g/brightness
+	fi
+}
+
+reload()
+{
+	stop
+	start
+}

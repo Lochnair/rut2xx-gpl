@@ -1,11 +1,25 @@
 #
 # Copyright (C) 2006-2012 OpenWrt.org
+# Copyright (C) 2016 LEDE project
 #
 # This is free software, licensed under the GNU General Public License v2.
 # See /LICENSE for more information.
 #
 
-OPENWRT_GIT = http://git.openwrt.org
+ifeq ($(LOCAL_PROJECT_GIT),)
+	PROJECT_GIT = https://git.openwrt.org
+else
+	PROJECT_GIT = $(LOCAL_PROJECT_GIT)
+endif
+
+OPENWRT_GIT = $(PROJECT_GIT)
+LEDE_GIT = $(PROJECT_GIT)
+
+ifdef PKG_SOURCE_VERSION
+PKG_VERSION ?= $(if $(PKG_SOURCE_DATE),$(PKG_SOURCE_DATE)-)$(call version_abbrev,$(PKG_SOURCE_VERSION))
+PKG_SOURCE_SUBDIR ?= $(PKG_NAME)-$(PKG_VERSION)
+PKG_SOURCE ?= $(PKG_SOURCE_SUBDIR).tar.xz
+endif
 
 DOWNLOAD_RDEP=$(STAMP_PREPARED) $(HOST_STAMP_PREPARED)
 
@@ -13,7 +27,7 @@ DOWNLOAD_RDEP=$(STAMP_PREPARED) $(HOST_STAMP_PREPARED)
 define dl_method
 $(strip \
   $(if $(2),$(2), \
-    $(if $(filter @GNOME/% @GNU/% @KERNEL/% @SF/% @SAVANNAH/% ftp://% http://% https://% file://%,$(1)),default, \
+    $(if $(filter @APACHE/% @GITHUB/% @GNOME/% @GNU/% @KERNEL/% @SF/% @SAVANNAH/% ftp://% http://% https://% file://%,$(1)),default, \
       $(if $(filter git://%,$(1)),git, \
         $(if $(filter svn://%,$(1)),svn, \
           $(if $(filter cvs://%,$(1)),cvs, \

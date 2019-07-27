@@ -1,0 +1,28 @@
+#!/bin/sh
+# Copyright (C) 2018 Teltonika
+
+. /lib/functions.sh
+
+HEX_STR=""
+string2hex() {
+	HEX_STR=$(echo -n "$1" | hexdump -v -e '/1 "%02X"')
+}
+
+check_openvpn_hex() {
+	if [ "$1" != "teltonika_auth_service" ]; then
+		config_get name_is_hexed "$1" "name_is_hexed"
+		if [ "$name_is_hexed" != "1" ]; then
+			string2hex "$1"
+			uci -q show "openvpn.$1" > "/tmp/openvpn_$1.tmp"
+			sed -i.bak -e 's/^\(openvpn.\)'"$1"'/set \1'"$HEX_STR"'/' "/tmp/openvpn_$1.tmp"
+			uci -q batch < "/tmp/openvpn_$1.tmp"
+			uci -q set "openvpn.$HEX_STR.name_is_hexed=1"
+			uci -q delete "openvpn.$1"
+			rm -f "/tmp/openvpn_$1.tmp" "/tmp/openvpn_$1.tmp.bak"
+		fi
+	fi
+}
+
+config_load "openvpn"
+config_foreach check_openvpn_hex "openvpn"
+uci commit "openvpn"

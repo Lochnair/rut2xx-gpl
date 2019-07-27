@@ -213,6 +213,7 @@ TARGET_CC:=$(TARGET_CROSS)gcc
 TARGET_CXX:=$(TARGET_CROSS)g++
 KPATCH:=$(SCRIPT_DIR)/patch-kernel.sh
 SED:=$(STAGING_DIR_HOST)/bin/sed -i -e
+ESED:=$(STAGING_DIR_HOST)/bin/sed -E -i -e
 CP:=cp -fpR
 LN:=ln -sf
 XARGS:=xargs -r
@@ -243,6 +244,15 @@ ifneq ($(CONFIG_CCACHE),)
   HOSTCXX:= ccache $(HOSTCXX)
 endif
 
+#Teltonika. Define variable for platform selection
+ifeq ($(CONFIG_TARGET_ar71xx_generic_RUT900),y)
+  PLATFORM:=9
+else ifeq ($(CONFIG_TARGET_ar71xx_generic_RUT850),y)
+  PLATFORM:=8
+else ifeq ($(CONFIG_TARGET_ar71xx_generic_RUT200),y)
+  PLATFORM:=2
+endif
+
 TARGET_CONFIGURE_OPTS = \
   AR="$(TARGET_AR)" \
   AS="$(TARGET_CC) -c $(TARGET_ASFLAGS)" \
@@ -255,7 +265,8 @@ TARGET_CONFIGURE_OPTS = \
   STRIP=$(TARGET_CROSS)strip \
   OBJCOPY=$(TARGET_CROSS)objcopy \
   OBJDUMP=$(TARGET_CROSS)objdump \
-  SIZE=$(TARGET_CROSS)size
+  SIZE=$(TARGET_CROSS)size \
+  PLATFORM=$(PLATFORM)
 
 # strip an entire directory
 ifneq ($(CONFIG_NO_STRIP),)

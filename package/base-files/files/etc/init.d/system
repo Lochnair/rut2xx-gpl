@@ -12,6 +12,8 @@ validate_system_section()
 		'buffersize:uinteger' \
 		'timezone:string:UTC' \
 		'zonename:string'
+
+	return $?
 }
 
 system_config() {
@@ -24,7 +26,7 @@ system_config() {
 		return 1
 	}
 
-	echo "$hostname" > /proc/sys/kernel/hostname
+    echo "$hostname" | sed 's/[^[:print:]]//g' > /proc/sys/kernel/hostname
 	[ -z "$conloglevel" -a -z "$buffersize" ] || dmesg ${conloglevel:+-n $conloglevel} ${buffersize:+-s $buffersize}
 	echo "$timezone" > /tmp/TZ
 	[ -n "$zonename" ] && [ -f "/usr/share/zoneinfo/$zonename" ] && ln -s "/usr/share/zoneinfo/$zonename" /tmp/localtime

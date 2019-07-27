@@ -1,0 +1,6 @@
+config ioman 'ioman'
+	option interval '3'
+	option active_DOUT1_status '1'
+	option resistor '1200'
+
+config iostatus 'iolabels'

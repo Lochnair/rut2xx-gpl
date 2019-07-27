@@ -324,24 +324,84 @@ endef
 $(eval $(call KernelPackage,ipt-nat-extra))
 
 
-define KernelPackage/nf-nathelper
+define KernelPackage/nf-nathelper-ftp
   SUBMENU:=$(NF_MENU)
-  TITLE:=Basic Conntrack and NAT helpers
-  KCONFIG:=$(KCONFIG_NF_NATHELPER)
-  FILES:=$(foreach mod,$(NF_NATHELPER-m),$(LINUX_DIR)/net/$(mod).ko)
-  AUTOLOAD:=$(call AutoProbe,$(notdir $(NF_NATHELPER-m)))
+  TITLE:=Conntrack and NAT helpers for FTP
+  KCONFIG:=$(KCONFIG_NF_NATHELPER_FTP)
+  FILES:=$(foreach mod,$(NF_NATHELPER_FTP-m),$(LINUX_DIR)/net/$(mod).ko)
+  AUTOLOAD:=$(call AutoProbe,$(notdir $(NF_NATHELPER_FTP-m)))
   DEPENDS:=+kmod-nf-nat
 endef
 
-define KernelPackage/nf-nathelper/description
- Default Netfilter (IPv4) Conntrack and NAT helpers
- Includes:
- - ftp
- - irc
- - tftp
+define KernelPackage/nf-nathelper-ftp/description
+ Netfilter (IPv4) Conntrack and NAT helpers for FTP
 endef
 
-$(eval $(call KernelPackage,nf-nathelper))
+$(eval $(call KernelPackage,nf-nathelper-ftp))
+
+
+define KernelPackage/nf-nathelper-gre
+  SUBMENU:=$(NF_MENU)
+  TITLE:=Conntrack and NAT helpers for GRE
+  KCONFIG:=$(KCONFIG_NF_NATHELPER_GRE)
+  FILES:=$(foreach mod,$(NF_NATHELPER_GRE-m),$(LINUX_DIR)/net/$(mod).ko)
+  AUTOLOAD:=$(call AutoProbe,$(notdir $(NF_NATHELPER_GRE-m)))
+  DEPENDS:=+kmod-nf-nat +kmod-lib-textsearch
+endef
+
+define KernelPackage/nf-nathelper-gre/description
+ Netfilter (IPv4) Conntrack and NAT helpers for GRE
+endef
+
+$(eval $(call KernelPackage,nf-nathelper-gre))
+
+
+define KernelPackage/nf-nathelper-pptp
+  SUBMENU:=$(NF_MENU)
+  TITLE:=Conntrack and NAT helpers for PPTP
+  KCONFIG:=$(KCONFIG_NF_NATHELPER_PPTP)
+  FILES:=$(foreach mod,$(NF_NATHELPER_PPTP-m),$(LINUX_DIR)/net/$(mod).ko)
+  AUTOLOAD:=$(call AutoProbe,$(notdir $(NF_NATHELPER_PPTP-m)))
+  DEPENDS:=+kmod-nf-nat +kmod-nf-nathelper-gre +kmod-lib-textsearch
+endef
+
+define KernelPackage/nf-nathelper-pptp/description
+ Netfilter (IPv4) Conntrack and NAT helpers for PPTP
+endef
+
+$(eval $(call KernelPackage,nf-nathelper-pptp))
+
+
+define KernelPackage/nf-nathelper-h323
+  SUBMENU:=$(NF_MENU)
+  TITLE:=Conntrack and NAT helpers for H323
+  KCONFIG:=$(KCONFIG_NF_NATHELPER_H323)
+  FILES:=$(foreach mod,$(NF_NATHELPER_H323-m),$(LINUX_DIR)/net/$(mod).ko)
+  AUTOLOAD:=$(call AutoProbe,$(notdir $(NF_NATHELPER_H323-m)))
+  DEPENDS:=+kmod-nf-nat +kmod-lib-textsearch
+endef
+
+define KernelPackage/nf-nathelper-h323/description
+ Netfilter (IPv4) Conntrack and NAT helpers for H323
+endef
+
+$(eval $(call KernelPackage,nf-nathelper-h323))
+
+
+define KernelPackage/nf-nathelper-sip
+  SUBMENU:=$(NF_MENU)
+  TITLE:=Conntrack and NAT helpers for SIP
+  KCONFIG:=$(KCONFIG_NF_NATHELPER_SIP)
+  FILES:=$(foreach mod,$(NF_NATHELPER_SIP-m),$(LINUX_DIR)/net/$(mod).ko)
+  AUTOLOAD:=$(call AutoProbe,$(notdir $(NF_NATHELPER_SIP-m)))
+  DEPENDS:=+kmod-nf-nat +kmod-lib-textsearch
+endef
+
+define KernelPackage/nf-nathelper-sip/description
+ Netfilter (IPv4) Conntrack and NAT helpers for SIP
+endef
+
+$(eval $(call KernelPackage,nf-nathelper-sip))
 
 
 define KernelPackage/nf-nathelper-extra
@@ -357,13 +417,10 @@ define KernelPackage/nf-nathelper-extra/description
  Extra Netfilter (IPv4) Conntrack and NAT helpers
  Includes:
  - amanda
- - h323
  - mms
- - pptp
- - proto_gre
- - sip
  - snmp_basic
  - broadcast
+ - tftp
 endef
 
 $(eval $(call KernelPackage,nf-nathelper-extra))

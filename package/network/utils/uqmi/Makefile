@@ -10,6 +10,7 @@ PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
 PKG_SOURCE_VERSION:=86bcdb8cca652676a78b2df8b5e3fb27a40c60a4
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION)-$(PKG_SOURCE_VERSION).tar.gz
 PKG_MAINTAINER:=Matti Laakso <malaakso@elisanet.fi>
+PATCH_DIR:=patches
 # PKG_MIRROR_MD5SUM:=
 # CMAKE_INSTALL:=1
 
@@ -24,7 +25,7 @@ include $(INCLUDE_DIR)/cmake.mk
 define Package/uqmi
   SECTION:=net
   CATEGORY:=Network
-  DEPENDS:=+libubox +libblobmsg-json +kmod-usb-net +kmod-usb-net-qmi-wwan +wwan
+  DEPENDS:=+libubox +libblobmsg-json +kmod-usb-net +kmod-usb-net-qmi-wwan
   TITLE:=Control utility for mobile broadband modems
 endef
 

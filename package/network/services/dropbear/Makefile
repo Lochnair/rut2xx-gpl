@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2014 OpenWrt.org
+# Copyright (C) 2006-2018 OpenWrt.org
 #
 # This is free software, licensed under the GNU General Public License v2.
 # See /LICENSE for more information.
@@ -8,24 +8,34 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=dropbear
-PKG_VERSION:=2015.67
-PKG_RELEASE:=1
+PKG_VERSION:=2019.78
+PKG_RELEASE:=2
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
 PKG_SOURCE_URL:= \
 	http://matt.ucc.asn.au/dropbear/releases/ \
 	https://dropbear.nl/mirror/releases/
-PKG_MD5SUM:=e967e320344cd4bfebe321e3ab8514d6
+PKG_MD5SUM:=a972c85ed678ad0fdcb7844e1294fb54
 
 PKG_LICENSE:=MIT
 PKG_LICENSE_FILES:=LICENSE libtomcrypt/LICENSE libtommath/LICENSE
+PKG_CPE_ID:=cpe:/a:matt_johnston:dropbear_ssh_server
 
 PKG_BUILD_PARALLEL:=1
 PKG_USE_MIPS16:=0
+PKG_FIXUP:=autoreconf
 
-PKG_CONFIG_DEPENDS:=CONFIG_DROPBEAR_ECC
+PKG_CONFIG_DEPENDS:= \
+	CONFIG_TARGET_INIT_PATH CONFIG_DROPBEAR_ECC CONFIG_DROPBEAR_ECC_FULL \
+	CONFIG_DROPBEAR_CURVE25519 CONFIG_DROPBEAR_ZLIB \
+	CONFIG_DROPBEAR_UTMP CONFIG_DROPBEAR_PUTUTLINE \
+	CONFIG_DROPBEAR_DBCLIENT
 
 include $(INCLUDE_DIR)/package.mk
+
+ifneq ($(DUMP),1)
+  STAMP_CONFIGURED:=$(strip $(STAMP_CONFIGURED))_$(shell echo $(CONFIG_TARGET_INIT_PATH) | md5sum)
+endif
 
 define Package/dropbear/Default
   URL:=http://matt.ucc.asn.au/dropbear/
@@ -40,6 +50,11 @@ define Package/dropbear
   SECTION:=net
   CATEGORY:=Base system
   TITLE:=Small SSH2 client/server
+  DEPENDS:= +DROPBEAR_ZLIB:zlib
+  ALTERNATIVES:=\
+	  100:/usr/bin/ssh:/usr/sbin/dropbear \
+	  100:/usr/bin/scp:/usr/sbin/dropbear \
+
 endef
 
 define Package/dropbear/description
@@ -47,9 +62,9 @@ define Package/dropbear/description
 endef
 
 define Package/dropbear/conffiles
+$(if $(CONFIG_DROPBEAR_ECC),/etc/dropbear/dropbear_ecdsa_host_key)
 /etc/dropbear/dropbear_rsa_host_key
-/etc/dropbear/dropbear_dss_host_key 
-/etc/config/dropbear 
+/etc/config/dropbear
 endef
 
 define Package/dropbearconvert
@@ -63,40 +78,69 @@ CONFIGURE_ARGS += \
 	--disable-pam \
 	--enable-openpty \
 	--enable-syslog \
-	$(if $(CONFIG_SHADOW_PASSWORDS),,--disable-shadow) \
 	--disable-lastlog \
-	--disable-utmp \
 	--disable-utmpx \
+	$(if $(CONFIG_DROPBEAR_UTMP),,--disable-utmp) \
 	--disable-wtmp \
 	--disable-wtmpx \
 	--disable-loginfunc \
-	--disable-pututline \
+	$(if $(CONFIG_DROPBEAR_PUTUTLINE),,--disable-pututline) \
 	--disable-pututxline \
-	--disable-zlib \
+	$(if $(CONFIG_DROPBEAR_ZLIB),,--disable-zlib) \
 	--enable-bundled-libtom
 
-TARGET_CFLAGS += -DARGTYPE=3 -ffunction-sections -fdata-sections
-TARGET_LDFLAGS += -Wl,--gc-sections
+TARGET_CFLAGS += -DARGTYPE=3 -ffunction-sections -fdata-sections -flto
+TARGET_LDFLAGS += -Wl,--gc-sections -flto=jobserver
 
 define Build/Configure
+	: > $(PKG_BUILD_DIR)/localoptions.h
+
 	$(Build/Configure/Default)
 
-	# Enforce that all replacements are made, otherwise options.h has changed
-	# format and this logic is broken.
-	for OPTION in DROPBEAR_ECDSA DROPBEAR_ECDH DROPBEAR_CURVE25519; do \
-	  awk 'BEGIN { rc = 1 } \
-	       /'$$$$OPTION'/ { $$$$0 = "$(if $(CONFIG_DROPBEAR_ECC),,// )#define '$$$$OPTION'"; rc = 0 } \
-	       { print } \
-	       END { exit(rc) }' $(PKG_BUILD_DIR)/options.h \
-	       >$(PKG_BUILD_DIR)/options.h.new && \
-	  mv $(PKG_BUILD_DIR)/options.h.new $(PKG_BUILD_DIR)/options.h || exit 1; \
+	echo '#define DEFAULT_PATH "/bin:/sbin:/usr/bin:/usr/sbin"' >> \
+		$(PKG_BUILD_DIR)/localoptions.h
+
+	echo '#define DROPBEAR_CURVE25519 $(if $(CONFIG_DROPBEAR_CURVE25519),1,0)' >> \
+		$(PKG_BUILD_DIR)/localoptions.h
+
+	for OPTION in DROPBEAR_ECDSA DROPBEAR_ECDH; do \
+		echo "#define $$$$OPTION $(if $(CONFIG_DROPBEAR_ECC),1,0)" >> \
+			$(PKG_BUILD_DIR)/localoptions.h; \
 	done
+
+	# remove protocol idented software version number
+	$(ESED) 's,^(#define LOCAL_IDENT) .*$$$$,\1 "SSH-2.0-SSH",g' \
+		$(PKG_BUILD_DIR)/sysoptions.h
+
+	# disable legacy/unsafe methods and unused functionality
+	for OPTION in INETD_MODE DROPBEAR_CLI_NETCAT \
+	DROPBEAR_3DES DROPBEAR_DSS DROPBEAR_ENABLE_CBC_MODE \
+	DROPBEAR_SHA1_HMAC DROPBEAR_DH_GROUP1 \
+	DROPBEAR_SHA1_96_HMAC DROPBEAR_USE_PASSWORD_ENV; do \
+		echo "#define $$$$OPTION 0" >> \
+			$(PKG_BUILD_DIR)/localoptions.h; \
+	done
+
+	# enable used methods / functionality
+	for OPTION in DROPBEAR_DH_GROUP16 DO_MOTD; do \
+		echo "#define $$$$OPTION 1" >> \
+			$(PKG_BUILD_DIR)/localoptions.h; \
+	done
+
+	# enable nistp384 and nistp521 only if full ECC support was requested
+	for OPTION in DROPBEAR_ECC_384 DROPBEAR_ECC_521; do \
+		$(ESED) 's,^(#define '$$$$OPTION') .*$$$$,\1 $(if $(CONFIG_DROPBEAR_ECC_FULL),1,0),g' \
+		$(PKG_BUILD_DIR)/sysoptions.h; \
+	done
+
+	# Enforce rebuild of svr-chansession.c
+	rm -f $(PKG_BUILD_DIR)/svr-chansession.o
 endef
 
 define Build/Compile
 	+$(MAKE) $(PKG_JOBS) -C $(PKG_BUILD_DIR) \
 		$(TARGET_CONFIGURE_OPTS) \
-		PROGRAMS="dropbear dbclient dropbearkey scp" \
+		PROGRAMS="dropbear $(if $(CONFIG_DROPBEAR_DBCLIENT),dbclient,) dropbearkey scp" \
 		MULTI=1 SCPPROGRESS=1
 	+$(MAKE) $(PKG_JOBS) -C $(PKG_BUILD_DIR) \
 		$(TARGET_CONFIGURE_OPTS) \
@@ -107,18 +151,18 @@ define Package/dropbear/install
 	$(INSTALL_DIR) $(1)/usr/sbin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/dropbearmulti $(1)/usr/sbin/dropbear
 	$(INSTALL_DIR) $(1)/usr/bin
-	$(LN) ../sbin/dropbear $(1)/usr/bin/scp
-	$(LN) ../sbin/dropbear $(1)/usr/bin/ssh
-	$(LN) ../sbin/dropbear $(1)/usr/bin/dbclient
+	$(if $(CONFIG_DROPBEAR_DBCLIENT),$(LN) ../sbin/dropbear $(1)/usr/bin/scp; \
+		$(LN) ../sbin/dropbear $(1)/usr/bin/ssh; \
+		$(LN) ../sbin/dropbear $(1)/usr/bin/dbclient)
 	$(LN) ../sbin/dropbear $(1)/usr/bin/dropbearkey
 	$(INSTALL_DIR) $(1)/etc/config
-	$(INSTALL_DATA) ./files/dropbear.config $(1)/etc/config/dropbear
+	$(INSTALL_CONF) ./files/dropbear.config $(1)/etc/config/dropbear
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/dropbear.init $(1)/etc/init.d/dropbear
 	$(INSTALL_DIR) $(1)/usr/lib/opkg/info
 	$(INSTALL_DIR) $(1)/etc/dropbear
+	$(if $(CONFIG_DROPBEAR_ECC),touch $(1)/etc/dropbear/dropbear_ecdsa_host_key)
 	touch $(1)/etc/dropbear/dropbear_rsa_host_key
-	touch $(1)/etc/dropbear/dropbear_dss_host_key
 endef
 
 define Package/dropbearconvert/install

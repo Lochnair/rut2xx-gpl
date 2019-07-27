@@ -1,28 +1,31 @@
 #
-# Copyright (C) 2010-2015 Jo-Philipp Wich <jow@openwrt.org>
+# Copyright (C) 2010-2015 Jo-Philipp Wich <jo@mein.io>
 #
 # This is free software, licensed under the GNU General Public License v2.
 # See /LICENSE for more information.
 #
 
 include $(TOPDIR)/rules.mk
+include $(INCLUDE_DIR)/download.mk
 
 PKG_NAME:=uhttpd
-PKG_VERSION:=2015-11-08
-PKG_RELEASE=$(PKG_SOURCE_VERSION)
+PKG_VERSION:=2018-06-26
+PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
-PKG_SOURCE_URL:=git://nbd.name/uhttpd2.git
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
-PKG_SOURCE_VERSION:=fe01ef3f52adae9da38ef47926cd50974af5d6b7
+PKG_SOURCE_URL=$(PROJECT_GIT)/project/uhttpd.git
+PKG_SOURCE_VERSION:=796d42bceed2015bb00309a3bf0f49279b070c19
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION)-$(PKG_SOURCE_VERSION).tar.gz
-PKG_MAINTAINER:=Felix Fietkau <nbd@openwrt.org>
+PKG_MAINTAINER:=Felix Fietkau <nbd@nbd.name>
 PKG_LICENSE:=ISC
 
 PKG_BUILD_DEPENDS = ustream-ssl
+PKG_CONFIG_DEPENDS:= CONFIG_uhttpd_lua
 
 include $(INCLUDE_DIR)/package.mk
 include $(INCLUDE_DIR)/cmake.mk
+include $(INCLUDE_DIR)/version.mk
 
 define Package/uhttpd/default
   SECTION:=net
@@ -46,37 +49,10 @@ define Package/uhttpd/config
   config PACKAGE_uhttpd_debug
     bool "Build with debug messages"
     default n
-endef
-
-
-define Package/uhttpd-mod-tls
-  $(Package/uhttpd/default)
-  TITLE+= (TLS plugin)
-  DEPENDS:=uhttpd \
-	+PACKAGE_uhttpd-mod-tls_polarssl:libustream-polarssl \
-	+PACKAGE_uhttpd-mod-tls_cyassl:libustream-cyassl \
-	+PACKAGE_uhttpd-mod-tls_openssl:libustream-openssl
-endef
-
-define Package/uhttpd-mod-tls/description
- The TLS plugin adds HTTPS support to uHTTPd.
-endef
-
-define Package/uhttpd-mod-tls/config
-  choice
-    depends on PACKAGE_uhttpd-mod-tls
-    prompt "TLS Provider"
-    default PACKAGE_uhttpd-mod-tls_polarssl
-
-    config PACKAGE_uhttpd-mod-tls_polarssl
-      bool "PolarSSL"
-
-    config PACKAGE_uhttpd-mod-tls_cyassl
-      bool "CyaSSL"
-
-    config PACKAGE_uhttpd-mod-tls_openssl
-      bool "OpenSSL"
-  endchoice
+  config uhttpd_lua
+    depends on PACKAGE_uhttpd-mod-lua
+    bool "Enable Integrated Lua interpreter"
+	default y
 endef
 
 define Package/uhttpd-mod-lua
@@ -101,6 +77,17 @@ define Package/uhttpd-mod-ubus/description
  session.* namespace and procedures.
 endef
 
+define Package/uhttpd-mod-ubus-rms
+  $(Package/uhttpd/default)
+  TITLE+= (ubus_rms plugin)
+  DEPENDS:=uhttpd +libubus +libblobmsg-json
+endef
+
+define Package/uhttpd-mod-ubus-rms/description
+ The ubus plugin adds a HTTP/JSON RPC proxy for ubus and publishes the
+ session.* namespace and procedures.
+endef
+
 define Package/uhttpd/conffiles
 /etc/config/uhttpd
 /etc/uhttpd.crt
@@ -118,14 +105,11 @@ CMAKE_OPTIONS = -DTLS_SUPPORT=on
 define Package/uhttpd/install
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/uhttpd.init $(1)/etc/init.d/uhttpd
+	$(INSTALL_BIN) ./files/rms_uhttpd.init $(1)/etc/init.d/rms_uhttpd
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) ./files/uhttpd.config $(1)/etc/config/uhttpd
 	$(INSTALL_DIR) $(1)/usr/sbin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/uhttpd $(1)/usr/sbin/uhttpd
-endef
-
-define Package/uhttpd-mod-tls/install
-	true
 endef
 
 define Package/uhttpd-mod-lua/install
@@ -139,8 +123,13 @@ define Package/uhttpd-mod-ubus/install
 	$(INSTALL_DATA) ./files/ubus.default $(1)/etc/uci-defaults/00_uhttpd_ubus
 endef
 
+define Package/uhttpd-mod-ubus-rms/install
+	$(INSTALL_DIR) $(1)/usr/lib $(1)/etc/uci-defaults
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/uhttpd_ubus_rms.so $(1)/usr/lib/
+endef
+
 
 $(eval $(call BuildPackage,uhttpd))
-$(eval $(call BuildPackage,uhttpd-mod-tls))
 $(eval $(call BuildPackage,uhttpd-mod-lua))
 $(eval $(call BuildPackage,uhttpd-mod-ubus))
+$(eval $(call BuildPackage,uhttpd-mod-ubus-rms))

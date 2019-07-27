@@ -9,44 +9,25 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=gre
 PKG_VERSION:=1
-PKG_RELEASE:=3
+PKG_RELEASE:=10
 PKG_LICENSE:=GPL-2.0
 
 include $(INCLUDE_DIR)/package.mk
 
 define Package/gre/Default
-  SECTION:=net
-  CATEGORY:=Network
-  MAINTAINER:=Hans Dedecker <dedeckeh@gmail.com>
 endef
 
 define Package/gre
-$(call Package/gre/Default)
+  SECTION:=net
+  CATEGORY:=Network
+  MAINTAINER:=Hans Dedecker <dedeckeh@gmail.com>
   TITLE:=Generic Routing Encapsulation config support
+  DEPENDS:=+kmod-gre +IPV6:kmod-gre6 +resolveip
+  PROVIDES:=grev4 grev6
 endef
 
 define Package/gre/description
  Generic Routing Encapsulation config support (IPv4 and IPv6) in /etc/config/network.
-endef
-
-define Package/grev4
-$(call Package/gre/Default)
-  TITLE:=Generic Routing Encapsulation (IPv4) config support
-  DEPENDS:=@(PACKAGE_gre) +kmod-gre
-endef
-
-define Package/grev4/description
- Generic Routing Encapsulation config support (IPv4) in /etc/config/network.
-endef
-
-define Package/grev6
-$(call Package/gre/Default)
-  TITLE:=Generic Routing Encapsulation (IPv6) config support
-  DEPENDS:=@(PACKAGE_gre) +kmod-ipv6 +kmod-ip6-gre
-endef
-
-define Package/grev6/description
- Generic Routing Encapsulation config support (IPv6) in /etc/config/network.
 endef
 
 define Build/Compile
@@ -61,5 +42,3 @@ define Package/gre/install
 endef
 
 $(eval $(call BuildPackage,gre))
-$(eval $(call BuildPackage,grev4))
-$(eval $(call BuildPackage,grev6))

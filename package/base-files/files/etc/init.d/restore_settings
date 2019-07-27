@@ -1,0 +1,12 @@
+#!/bin/sh /etc/rc.common
+
+
+START=99
+start()
+{
+	/sbin/keep_settings_new.sh check
+	if [ $? -eq 0 ]; then
+		/sbin/mobile_settings_restore.sh >/tmp/mobile_restore.log 2>&1
+		luci-reload simcard >/dev/null 2>&1
+	fi
+}

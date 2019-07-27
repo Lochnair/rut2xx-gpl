@@ -1,0 +1,11 @@
+--- a/ustream-openssl.c
++++ b/ustream-openssl.c
+@@ -53,7 +53,7 @@
+ 	SSL_CTX_set_ecdh_auto(c, 1);
+ #endif
+ 	if (server)
+-		SSL_CTX_set_cipher_list(c, "DEFAULT:!RC4:@STRENGTH");
++		SSL_CTX_set_cipher_list(c, "AES256+EECDH:AES256+EDH:AES128+EECDH:AES128+EDH:!RC4:!aNULL:!MD5:!DSS");
+ 	SSL_CTX_set_quiet_shutdown(c, 1);
+ 
+ 	return (void *) c;

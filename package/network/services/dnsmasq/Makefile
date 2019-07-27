@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2015 OpenWrt.org
+# Copyright (C) 2006-2016 OpenWrt.org
 #
 # This is free software, licensed under the GNU General Public License v2.
 # See /LICENSE for more information.
@@ -8,15 +8,16 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=dnsmasq
-PKG_VERSION:=2.73
-PKG_RELEASE:=1
+PKG_VERSION:=2.79
+PKG_RELEASE:=2
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.xz
-PKG_SOURCE_URL:=http://thekelleys.org.uk/dnsmasq
-PKG_MD5SUM:=b8bfe96d22945c8cf4466826ba9b21bd
+PKG_SOURCE_URL:=http://thekelleys.org.uk/dnsmasq/
+PKG_MD5SUM:=64010c9734f5e275eb591374a6dad924
 
 PKG_LICENSE:=GPL-2.0
 PKG_LICENSE_FILES:=COPYING
+PKG_CPE_ID:=cpe:/a:thekelleys:dnsmasq
 
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(BUILD_VARIANT)/$(PKG_NAME)-$(PKG_VERSION)
 
@@ -121,7 +122,7 @@ endif
 
 MAKE_FLAGS := \
 	$(TARGET_CONFIGURE_OPTS) \
-	CFLAGS="$(TARGET_CFLAGS)" \
+	CFLAGS="$(TARGET_CFLAGS) $(TARGET_CPPFLAGS)" \
 	LDFLAGS="$(TARGET_LDFLAGS)" \
 	COPTS="$(COPTS)" \
 	PREFIX="/usr"
@@ -136,6 +137,7 @@ define Package/dnsmasq/install
 	$(INSTALL_BIN) ./files/dnsmasq.init $(1)/etc/init.d/dnsmasq
 	$(INSTALL_DIR) $(1)/etc/hotplug.d/iface
 	$(INSTALL_DATA) ./files/dnsmasq.hotplug $(1)/etc/hotplug.d/iface/25-dnsmasq
+	$(INSTALL_BIN) ./files/dhcpinfo.sh $(1)/usr/sbin/dhcpinfo.sh
 endef
 
 Package/dnsmasq-dhcpv6/install = $(Package/dnsmasq/install)

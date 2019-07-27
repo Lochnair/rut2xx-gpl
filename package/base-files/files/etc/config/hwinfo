@@ -1,0 +1,5 @@
+config hwinfo 'hwinfo'
+	option serial ''
+	option mnf_code ''
+	option batch ''
+	option hwver ''

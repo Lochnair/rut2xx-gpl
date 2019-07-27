@@ -1,0 +1,105 @@
+<%#
+LuCI - Lua Configuration Interface
+Copyright 2008 Steven Barth <steven@midlink.org>
+Copyright 2008-2011 Jo-Philipp Wich <xm@subsignal.org>
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+$Id: index.htm 8408 2012-04-02 22:50:26Z jow $
+
+-%>
+
+<%-
+	require "luci.fs"
+	require "luci.tools.status"
+	luci.util = require "luci.util"
+	local uci = require "luci.model.uci".cursor()
+	local ds = require "luci.dispatcher"
+	
+	local din1 = luci.util.trim(luci.sys.exec("gpio.sh get DIN1"))
+	local dout1 = luci.util.trim(luci.sys.exec("gpio.sh get DOUT1"))
+	function get_config(out)
+                return luci.util.trim(luci.sys.exec("uci get ioman.ioman.active_"..out.."_status"))
+        end
+	local open_collector_output_cfg = get_config("DOUT1")
+
+	--custom labels
+	cutomlableredir1 = ds.build_url("admin","services","input-output","customfields","1")
+	cutomlableredir2 = ds.build_url("admin","services","input-output","customfields","2")
+	cutomlableredirdel = ds.build_url("admin","services","input-output","customfields","del")
+
+	local digitalinput = uci:get("ioman","iolabels","digitalinput") or translate("Digital input")
+	
+	local digitaloutput = uci:get("ioman","iolabels","digitaloutput") or translate("Digital output")
+
+	if luci.http.formvalue("status") == "1" then
+		if din1 == "0" then
+			din1 = uci:get("ioman","iolabels","diopen") or tostring(translate("Open"))
+			dihint = tostring(translate("Open"))
+		elseif din1 == "1" then
+			din1 = uci:get("ioman","iolabels","dishorted") or tostring(translate("Shorted"))
+			dihint = tostring(translate("Shorted"))
+		end
+
+		if open_collector_output_cfg == "1" then
+			if dout1 == "1" then
+				dout1 = uci:get("ioman","iolabels","diouthigh") or tostring(translate("Active (High level)"))
+                                dghint = tostring(translate("Active (High level)"))
+			elseif dout1 == "0" then
+				dout1 = uci:get("ioman","iolabels","dioutlow") or tostring(translate("Inactive (Low level)"))
+                                dghint = tostring(translate("Inactive (Low level)"))
+			end
+		else
+			if dout1 == "1" then
+				dout1 = uci:get("ioman","iolabels","diouthigh") or tostring(translate("Inactive (High level)"))
+                                dghint = tostring(translate("Inactive (High level)"))
+			elseif dout1 == "0" then
+				dout1 = uci:get("ioman","iolabels","dioutlow") or tostring(translate("Active (Low level)"))
+                                dghint = tostring(translate("Active (Low level)"))
+			end
+		end
+		local rv = {
+			din1 = din1,
+			dout1 = dout1,
+			dihint = dihint,
+			dohint = dghint
+		}
+		luci.http.prepare_content("application/json")
+		luci.http.write_json(rv)
+		return
+	end
+	local system, model = luci.sys.sysinfo()
+
+-%>
+
+<%+header%>
+<script type="text/javascript" src="<%=resource%>/cbi.js"></script>
+<script type="text/javascript">//<![CDATA[
+	XHR.poll(4, '<%=REQUEST_URI%>', { status: 1 },
+		function(x, info)
+		{
+			if (e = document.getElementById('DIN1')){
+				(info.din1 ) ? e.innerHTML = info.din1 : e.innerHTML = "N/A";
+				e.title = info.dihint;
+			}
+			if (e = document.getElementById('DOUT1')){
+				(info.dout1) ? e.innerHTML = info.dout1 : e.innerHTML = "N/A";
+				e.title = info.dohint;
+			}
+		}
+	);
+//]]></script>
+
+<h2><a id="content" name="content"><%=translate("Input/Output Status")%></a></h2>
+<fieldset class="cbi-section">
+	<table id="3gTable" width="100%" cellspacing="10">
+		<tr>	<td colspan="2"><b><%=translate("Type")%></b></td>																																<td><b><%=translate("State")%></b></td>	<td><button style="float:right;height:16px;width:85px;font-size:9px;color:#606060;padding:0px;margin:-2px;margin-top:1px;" class="btn btn-default" onclick="location.href = '<%=cutomlableredirdel-%>'">Restore default</button>	</td>																																																											</tr>
+		<tr>	<td width="5%"><img id='port1' src="<%=resource%>/icons/melyna.png" width="20px" /></td>	<td title="<%=translate('Digital input')%>" width="33%"><%=digitalinput%></td>		<td id="DIN1"><%: - %></td>				<td><button style="float:right;height:16px;width:38px;font-size:9px;color:#606060;padding:0px;margin:-2px;margin-top:4px;" class="btn btn-default" onclick="location.href = '<%=cutomlableredir1-%>'">Edit</button></td>			</tr>
+		<tr>	<td width="5%"><img id='port1' src="<%=resource%>/icons/violetine.png" width="20px" /></td>	<td title="<%=translate('Digital output')%>" width="33%"><%=digitaloutput%></td>		<td id="DOUT1"><%: - %></td>			<td><button style="float:right;height:17px;width:38px;font-size:9px;color:#606060;padding:0px;margin:-2px;margin-top:4px;" class="btn btn-default" onclick="location.href = '<%=cutomlableredir2-%>'">Edit</button></td>			</tr>
+	</table>
+</fieldset>
+<%+footer%>

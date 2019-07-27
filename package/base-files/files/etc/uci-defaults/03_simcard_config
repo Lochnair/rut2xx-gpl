@@ -1,0 +1,21 @@
+#!/bin/sh
+module_vid=`uci get -q system.module.vid`
+module_pid=`uci get -q system.module.pid`
+bands=`uci get -q simcard.bands`
+bandval=`uci get -q simcard.sim1.bandval`
+ltebandval=`uci get -q simcard.sim1.ltebandval`
+
+
+if [ "$module_vid" == "2C7C" ] && [ "$module_pid" == "0125" ]; then
+    if [ -z "$bands" ]; then
+	    uci set simcard.bands=bands
+    fi
+    if [ -z "$bandval" ]; then
+        uci set -q simcard.sim1.bandval="ffff"
+    fi
+    if [ -z "$ltebandval" ]; then
+        uci set -q simcard.sim1.ltebandval="1a0000800d5"
+    fi
+	uci commit simcard
+fi
+exit 0

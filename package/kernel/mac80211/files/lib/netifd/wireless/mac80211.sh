@@ -21,7 +21,7 @@ drv_mac80211_init_device_config() {
 	config_add_string hwmode
 	config_add_int beacon_int chanbw frag rts
 	config_add_int rxantenna txantenna antenna_gain txpower distance
-	config_add_boolean noscan ht_coex
+	config_add_boolean noscan
 	config_add_array ht_capab
 	config_add_boolean \
 		rxldpc \
@@ -42,7 +42,6 @@ drv_mac80211_init_device_config() {
 		greenfield \
 		short_gi_20 \
 		short_gi_40 \
-		max_amsdu \
 		dsss_cck_40
 }
 
@@ -55,7 +54,6 @@ drv_mac80211_init_iface_config() {
 	config_add_int maxassoc
 	config_add_int max_listen_int
 	config_add_int dtim_period
-	config_add_int start_disabled
 
 	# mesh
 	config_add_string mesh_id
@@ -90,7 +88,7 @@ mac80211_hostapd_setup_base() {
 
 	[ "$auto_channel" -gt 0 ] && channel=acs_survey
 
-	json_get_vars noscan ht_coex
+	json_get_vars noscan htmode
 	json_get_values ht_capab_list ht_capab
 
 	ieee80211n=1
@@ -127,9 +125,6 @@ mac80211_hostapd_setup_base() {
 	[ -n "$ieee80211n" ] && {
 		append base_cfg "ieee80211n=1" "$N"
 
-		set_default ht_coex 0
-		append base_cfg "ht_coex=$ht_coex" "$N"
-
 		json_get_vars \
 			ldpc:1 \
 			greenfield:0 \
@@ -137,7 +132,6 @@ mac80211_hostapd_setup_base() {
 			short_gi_40:1 \
 			tx_stbc:1 \
 			rx_stbc:3 \
-			max_amsdu:1 \
 			dsss_cck_40:1
 
 		ht_cap_mask=0
@@ -158,7 +152,6 @@ mac80211_hostapd_setup_base() {
 			RX-STBC1:0x300:0x100:1 \
 			RX-STBC12:0x300:0x200:1 \
 			RX-STBC123:0x300:0x300:1 \
-			MAX-AMSDU-7935:0x800::$max_amsdu \
 			DSSS_CCK-40:0x1000::$dsss_cck_40
 
 		ht_capab="$ht_capab$ht_capab_flags"
@@ -318,13 +311,12 @@ mac80211_hostapd_setup_bss() {
 	append hostapd_cfg "$type=$ifname" "$N"
 
 	hostapd_set_bss_options hostapd_cfg "$vif" || return 1
-	json_get_vars wds dtim_period max_listen_int start_disabled
+	json_get_vars wds dtim_period max_listen_int
 
 	set_default wds 0
-	set_default start_disabled 0
 
 	[ "$wds" -gt 0 ] && append hostapd_cfg "wds_sta=1" "$N"
-	[ "$staidx" -gt 0 -o "$start_disabled" -eq 1 ] && append hostapd_cfg "start_disabled=1" "$N"
+	[ "$staidx" -gt 0 ] && append hostapd_cfg "start_disabled=1" "$N"
 
 	cat >> /var/run/hostapd-$phy.conf <<EOF
 $hostapd_cfg
@@ -450,12 +442,17 @@ mac80211_prepare_vif() {
 			mac80211_hostapd_setup_bss "$phy" "$ifname" "$macaddr" "$type" || return
 
 			[ -n "$hostapd_ctrl" ] || {
-				iw phy "$phy" interface add "$ifname" type __ap
+				iw phy "$phy" interface add "$ifname" type managed
 				hostapd_ctrl="${hostapd_ctrl:-/var/run/hostapd/$ifname}"
 			}
 		;;
 		mesh)
-			iw phy "$phy" interface add "$ifname" type mp
+			json_get_vars key mesh_id
+			if [ -n "$key" ]; then
+				iw phy "$phy" interface add "$ifname" type mp
+			else
+				iw phy "$phy" interface add "$ifname" type mp mesh_id "$mesh_id"
+			fi
 		;;
 		monitor)
 			iw phy "$phy" interface add "$ifname" type monitor
@@ -493,41 +490,6 @@ mac80211_setup_supplicant() {
 	wpa_supplicant_run "$ifname" ${hostapd_ctrl:+-H $hostapd_ctrl}
 }
 
-mac80211_setup_adhoc_htmode() {
-	case "$htmode" in
-		VHT20|HT20) ibss_htmode=HT20;;
-		HT40*|VHT40|VHT80|VHT160)
-			case "$hwmode" in
-				a)
-					case "$(( ($channel / 4) % 2 ))" in
-						1) ibss_htmode="HT40+" ;;
-						0) ibss_htmode="HT40-";;
-					esac
-				;;
-				*)
-					case "$htmode" in
-						HT40+) ibss_htmode="HT40+";;
-						HT40-) ibss_htmode="HT40-";;
-						*)
-							if [ "$channel" -lt 7 ]; then
-								ibss_htmode="HT40+"
-							else
-								ibss_htmode="HT40-"
-							fi
-						;;
-					esac
-				;;
-			esac
-			[ "$auto_channel" -gt 0 ] && ibss_htmode="HT40+"
-		;;
-		NONE|NOHT)
-			ibss_htmode="NOHT"
-		;;
-		*) ibss_htmode="" ;;
-	esac
-
-}
-
 mac80211_setup_adhoc() {
 	json_get_vars bssid ssid key mcast_rate
 
@@ -555,13 +517,13 @@ mac80211_setup_adhoc() {
 
 	brstr=
 	for br in $basic_rate_list; do
-		wpa_supplicant_add_rate brstr "$br"
+		hostapd_add_rate brstr "$br"
 	done
 
 	mcval=
-	[ -n "$mcast_rate" ] && wpa_supplicant_add_rate mcval "$mcast_rate"
+	[ -n "$mcast_rate" ] && hostapd_add_rate mcval "$mcast_rate"
 
-	iw dev "$ifname" ibss join "$ssid" $freq $ibss_htmode fixed-freq $bssid \
+	iw dev "$ifname" ibss join "$ssid" $freq $htmode fixed-freq $bssid \
 		${beacon_int:+beacon-interval $beacon_int} \
 		${brstr:+basic-rates $brstr} \
 		${mcval:+mcast-rate $mcval} \
@@ -591,33 +553,26 @@ mac80211_setup_vif() {
 
 	case "$mode" in
 		mesh)
-			# authsae or wpa_supplicant
+			for var in $MP_CONFIG_INT $MP_CONFIG_BOOL $MP_CONFIG_STRING; do
+				json_get_var mp_val "$var"
+				[ -n "$mp_val" ] && iw dev "$ifname" set mesh_param "$var" "$mp_val"
+			done
+
+			# authsae
 			json_get_vars key
 			if [ -n "$key" ]; then
 				if [ -e "/lib/wifi/authsae.sh" ]; then
 					. /lib/wifi/authsae.sh
 					authsae_start_interface || failed=1
 				else
-					wireless_vif_parse_encryption
-					mac80211_setup_supplicant || failed=1
+					wireless_setup_vif_failed AUTHSAE_NOT_INSTALLED
+					json_select ..
+					return
 				fi
-			else
-				json_get_vars mesh_id mcast_rate
-
-				mcval=
-				[ -n "$mcast_rate" ] && wpa_supplicant_add_rate mcval "$mcast_rate"
-
-				iw dev "$ifname" mesh join "$mesh_id" ${mcval:+mcast-rate $mcval}
 			fi
-
-			for var in $MP_CONFIG_INT $MP_CONFIG_BOOL $MP_CONFIG_STRING; do
-				json_get_var mp_val "$var"
-				[ -n "$mp_val" ] && iw dev "$ifname" set mesh_param "$var" "$mp_val"
-			done
 		;;
 		adhoc)
 			wireless_vif_parse_encryption
-			mac80211_setup_adhoc_htmode
 			if [ "$wpa" -gt 0 -o "$auto_channel" -gt 0 ]; then
 				mac80211_setup_supplicant || failed=1
 			else
@@ -659,7 +614,7 @@ drv_mac80211_setup() {
 		country chanbw distance \
 		txpower antenna_gain \
 		rxantenna txantenna \
-		frag rts beacon_int htmode
+		frag rts beacon_int
 	json_get_values basic_rate_list basic_rate
 	json_select ..
 

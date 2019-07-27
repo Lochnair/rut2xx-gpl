@@ -1,20 +1,44 @@
 #!/bin/sh
 
-[ "${ACTION}" = "released" ] || exit 0
-
 . /lib/functions.sh
 
-logger "$BUTTON pressed for $SEEN seconds"
+min=4
+max=100
 
-if [ "$SEEN" -lt 1 ]
+get_min_max () {
+	local handler
+
+	config_get handler $1 handler
+
+	[ -n "$handler" -a "$handler" = "firstboot && reboot" ] && {
+		config_get min $1 min
+		config_get max $1 max
+	}
+}
+
+logger "$BUTTON was $ACTION for $SEEN seconds"
+
+config_load system
+config_foreach get_min_max button
+
+if [ "${ACTION}" = "released" ]
 then
-	echo "REBOOT" > /dev/console
-	sync
-	reboot
-elif [ "$SEEN" -gt 5 ]
-then
-	echo "FACTORY RESET" > /dev/console
-	jffs2reset -y && reboot &
+	/etc/init.d/ledsman stop
+	/usr/sbin/led_reset_count.sh $(( $min * 1000000 / 5 )) &
+	exit
 fi
 
-return 0
+if [ $min -le $SEEN -a $max -ge $SEEN ];
+then
+
+	echo "FACTORY RESET" > /dev/console
+	ps | grep led_reset_count.sh | awk '{print $1}' | xargs kill
+	/usr/sbin/ledbar.sh blink red
+	jffs2mark -y && reboot -b &
+else
+	echo "REBOOT" > /dev/console
+	ps | grep led_reset_count.sh | awk '{print $1}' | xargs kill
+	/usr/sbin/ledbar.sh blink green
+	sync
+	reboot -b
+fi

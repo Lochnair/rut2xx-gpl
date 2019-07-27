@@ -1,0 +1,14 @@
+--- a/include/uapi/linux/netfilter_arp/arp_tables.h
++++ b/include/uapi/linux/netfilter_arp/arp_tables.h
+@@ -41,9 +41,9 @@
+ /* Yes, Virginia, you have to zero the padding. */
+ struct arpt_arp {
+ 	/* Source and target IP addr */
+-	struct in_addr src, tgt;
++	struct in_addr __attribute__((aligned(4))) src, tgt;
+ 	/* Mask for src and target IP addr */
+-	struct in_addr smsk, tmsk;
++	struct in_addr __attribute__((aligned(4))) smsk, tmsk;
+ 
+ 	/* Device hw address length, src+target device addresses */
+ 	__u8 arhln, arhln_mask;

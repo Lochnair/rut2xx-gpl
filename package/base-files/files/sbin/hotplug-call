@@ -5,14 +5,22 @@ export HOTPLUG_TYPE="$1"
 
 . /lib/functions.sh
 
-PATH=/usr/sbin:/usr/bin:/sbin:/bin
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
 LOGNAME=root
 USER=root
+STR="ELF"
 export PATH LOGNAME USER
 export DEVICENAME="${DEVPATH##*/}"
 
 [ \! -z "$1" -a -d /etc/hotplug.d/$1 ] && {
 	for script in $(ls /etc/hotplug.d/$1/* 2>&-); do (
-		[ -f $script ] && . $script
+		
+		if [ $(hexdump -s 1 -n 3 -e '16/1 "%c""\n"' $script) == $STR ]; then
+    			./$script
+
+			
+		else
+   		 	[ -f $script ] && . $script
+		fi	
 	); done
 }

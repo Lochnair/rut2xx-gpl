@@ -9,6 +9,7 @@
 TOPDIR:=${CURDIR}
 LC_ALL:=C
 LANG:=C
+
 export TOPDIR LC_ALL LANG
 
 empty:=
@@ -50,10 +51,14 @@ printdb:
 prepare: $(target/stamp-compile)
 
 clean: FORCE
-	rm -rf $(BUILD_DIR) $(STAGING_DIR) $(BIN_DIR) $(BUILD_LOG_DIR)
+	rm -rf $(BUILD_DIR) $(BIN_DIR) $(BUILD_LOG_DIR)
+
+dlclean:
+	rm -rf ./dl
 
 dirclean: clean
-	rm -rf $(STAGING_DIR_HOST) $(TOOLCHAIN_DIR) $(BUILD_DIR_HOST) $(BUILD_DIR_TOOLCHAIN)
+	./scripts/feeds update
+	rm -rf $(STAGING_DIR) $(STAGING_DIR_HOST) $(STAGING_DIR_TOOLCHAIN) $(TOOLCHAIN_DIR) $(BUILD_DIR_HOST) $(BUILD_DIR_TOOLCHAIN)
 	rm -rf $(TMP_DIR)
 
 ifndef DUMP_TARGET_DB
@@ -82,10 +87,16 @@ prereq: $(target/stamp-prereq) tmp/.prereq_packages
 		exit 1; \
 	fi
 
-prepare: .config $(tools/stamp-install) $(toolchain/stamp-install)
-world: prepare $(target/stamp-compile) $(package/stamp-compile) $(package/stamp-install) $(target/stamp-install) FORCE
+prepare: .config $(tools/stamp-install) $(toolchain/stamp-install) FORCE
+
+compile-install: prepare $(target/stamp-compile) $(package/stamp-compile) $(package/stamp-install) $(target/stamp-install) FORCE
+
+world: FORCE
+	$(MAKE) compile-install CONFIG_TLT_VERSIONING_GPL=y
 	$(_SINGLE)$(SUBMAKE) -r package/index
+	@cp -f scripts/fwFinalization.sh bin/ar71xx;  \
+	cd bin/ar71xx; \
+	./fwFinalization.sh "master"; \
 
-.PHONY: clean dirclean prereq prepare world package/symlinks package/symlinks-install package/symlinks-clean
-
+.PHONY: clean dlclean dirclean miniclean prereq prepare world
 endif

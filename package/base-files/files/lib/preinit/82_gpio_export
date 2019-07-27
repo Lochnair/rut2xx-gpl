@@ -1,0 +1,10 @@
+#!/bin/sh
+
+define_gpio_export() {
+	#Init output pins
+	/sbin/gpio.sh "export" DOUT1
+	/sbin/gpio.sh "dirout" DOUT1
+	#input pins init defined in gpio-button-hotplug module
+}
+
+boot_hook_add preinit_main define_gpio_export

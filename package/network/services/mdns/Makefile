@@ -6,6 +6,7 @@
 #
 
 include $(TOPDIR)/rules.mk
+include $(INCLUDE_DIR)/download.mk
 
 PKG_NAME:=mdns
 PKG_VERSION:=2014-11-03
@@ -13,7 +14,7 @@ PKG_RELEASE=$(PKG_SOURCE_VERSION)
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
-PKG_SOURCE_URL:=git://git.openwrt.org/project/mdnsd.git
+PKG_SOURCE_URL:=$(PROJECT_GIT)/project/mdnsd.git
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_VERSION:=a5560f88bb2cddeef0ef11a12e7822b9c19a75a5
 

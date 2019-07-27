@@ -1,0 +1,4 @@
+config operctl 'general'
+	option debug_lvl '2'
+	option operlist '0'
+

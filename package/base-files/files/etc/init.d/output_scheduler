@@ -1,0 +1,45 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+STOP=99
+
+. /lib/functions.sh
+
+start()
+{
+    schd="$(cat /etc/scheduler/config | grep $(date +%a | awk '{print tolower($0)}') | cut -d':' -f 2 | head -c $(date +%H | sed 's/\b0//g'| awk '{print ($0 + 1)}') | tail -c 1)"
+
+    if [ $schd == "3" ]; then
+            /sbin/gpio.sh set DOUT1 &
+            /sbin/gpio.sh set DOUT2 &
+    elif [ $schd == "2" ]; then
+            /sbin/gpio.sh set DOUT2 &
+            /sbin/gpio.sh clear DOUT1 &
+    elif [ $schd == "1" ]; then
+            /sbin/gpio.sh set DOUT1 &
+            /sbin/gpio.sh clear DOUT2 &
+    else
+            /sbin/gpio.sh clear DOUT1 &
+            /sbin/gpio.sh clear DOUT2 &
+    fi
+    chck="$(cat /etc/crontabs/root | grep /sbin/gpio.sh)"
+
+    if [[ -z $chck ]]; then
+        lua /sbin/output_scheduler_cron.lua
+    fi
+}
+
+stop()
+{
+        /sbin/gpio.sh clear DOUT1 &
+        /sbin/gpio.sh clear DOUT2 &
+}
+
+restart(){
+	stop
+    start
+}
+
+reload(){
+        restart
+}

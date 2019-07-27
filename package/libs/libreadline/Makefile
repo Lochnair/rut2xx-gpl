@@ -1,4 +1,4 @@
-# 
+#
 # Copyright (C) 2006-2014 OpenWrt.org
 #
 # This is free software, licensed under the GNU General Public License v2.
@@ -8,27 +8,30 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=readline
-PKG_VERSION:=6.3
+PKG_VERSION:=7.0
 PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=@GNU/readline
-PKG_MD5SUM:=33c8fb279e981274f485fd91da77e94a
+PKG_MD5SUM:=205b03a87fc83dab653b628c59b9fc91
 
 PKG_LICENSE:=GPL-3.0
 PKG_LICENSE_FILES:=COPYING
+PKG_CPE_ID:=cpe:/a:gnu:readline
 
 PKG_BUILD_PARALLEL:=1
 PKG_FIXUP:=autoreconf
 PKG_INSTALL:=1
 
 include $(INCLUDE_DIR)/package.mk
+include $(INCLUDE_DIR)/host-build.mk
 
 define Package/libreadline
   SECTION:=libs
   CATEGORY:=Libraries
   TITLE:=Command lines edition library
   URL:=http://cnswww.cns.cwru.edu/php/chet/readline/rltop.html
+  ABI_VERSION:=$(PKG_VERSION)
 endef
 
 define Package/libreadline/description
@@ -60,12 +63,13 @@ define Build/InstallDev
 	$(INSTALL_DIR) $(1)/usr/include
 	$(CP) $(PKG_INSTALL_DIR)/usr/include/readline $(1)/usr/include/
 	$(INSTALL_DIR) $(1)/usr/lib
-	$(CP) $(PKG_INSTALL_DIR)/usr/lib/lib{history,readline}.{a,so,so.6,so.6.3} $(1)/usr/lib/
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/lib{history,readline}.{a,so,so.7,so.7.0} $(1)/usr/lib/
 endef
 
 define Package/libreadline/install
 	$(INSTALL_DIR) $(1)/usr/lib
-	$(CP) $(PKG_INSTALL_DIR)/usr/lib/lib{history,readline}.{so,so.6,so.6.3} $(1)/usr/lib/
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/lib{history,readline}.{so,so.7,so.7.0} $(1)/usr/lib/
 endef
 
+$(eval $(call HostBuild))
 $(eval $(call BuildPackage,libreadline))

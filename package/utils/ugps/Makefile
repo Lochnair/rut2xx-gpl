@@ -6,6 +6,7 @@
 #
 
 include $(TOPDIR)/rules.mk
+include $(INCLUDE_DIR)/download.mk
 
 PKG_NAME:=ugps
 PKG_VERSION:=2015-08-17
@@ -13,7 +14,7 @@ PKG_RELEASE=$(PKG_SOURCE_VERSION)
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_SOURCE_VERSION).tar.bz2
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
-PKG_SOURCE_URL:=git://git.openwrt.org/project/ugps.git
+PKG_SOURCE_URL:=$(PROJECT_GIT)/project/ugps.git
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_VERSION:=971e6703eb9bed936cc62cd335105bd2acca14ef
 

@@ -1,7 +1,7 @@
 #!/bin/sh /etc/rc.common
-# Copyright (C) 2008 OpenWrt.org
+# (C) 2008 openwrt.org
 
-START=96
+START=21
 
 load_led() {
 	local name
@@ -34,20 +34,13 @@ load_led() {
 
 	[ -e /sys/class/leds/${sysfs}/brightness ] && {
 		echo "setting up led ${name}"
-
-		[ "$default" = 0 ] &&
-			echo 0 >/sys/class/leds/${sysfs}/brightness
-
-		echo $trigger > /sys/class/leds/${sysfs}/trigger 2> /dev/null
-		ret="$?"
-
-		[ $default = 1 ] &&
-			echo 1 >/sys/class/leds/${sysfs}/brightness
-
-		[ $ret = 0 ] || {
-			echo >&2 "Skipping trigger '$trigger' for led '$name' due to missing kernel module"
-			return 1
+		[ "$default" != nil ] && {
+			[ $default -eq 1 ] &&
+				echo 1 >/sys/class/leds/${sysfs}/brightness
+			[ $default -eq 1 ] ||
+				echo 0 >/sys/class/leds/${sysfs}/brightness
 		}
+		echo $trigger > /sys/class/leds/${sysfs}/trigger
 		case "$trigger" in
 		"netdev")
 			[ -n "$dev" ] && {

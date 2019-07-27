@@ -1,0 +1,63 @@
+<%+cbi/valueheader%>
+
+	<script>
+		function hide_show() {
+			igs = document.getElementById('cbid.network.lan.igs');
+			start = document.getElementById('cbi-network-lan-start');
+			limit = document.getElementById('cbi-network-lan-limit');
+			leasetime = document.getElementById('cbi-network-lan-time');
+			leasetype = document.getElementById('cbi-network-lan-letter');
+			ipaddr_start = document.getElementById('cbi-network-lan-startip');
+			ipaddr_end = document.getElementById('cbi-network-lan-endip');
+
+			if (!igs.checked) {
+				console.log(igs.checked);
+				start.style.display = "none";
+				limit.style.display = "none";
+				leasetime.style.display = "none";
+				leasetype.style.display = "none";
+				ipaddr_start.style.display = "none";
+				ipaddr_end.style.display = "none";
+			} else {
+				console.log(igs.checked);
+				start.style.display = "block";
+				limit.style.display = "block";
+				leasetime.style.display = "inline-block";
+				leasetype.style.display = "inline-block";
+				ipaddr_start.style.display = "block";
+				ipaddr_end.style.display = "block";
+			}
+		}
+		window.addEventListener("load", hide_show);
+	</script>
+
+
+	<input type="hidden" value="1"<%=
+		attr("name", "cbi.cbe." .. self.config .. "." .. section .. "." .. self.option)
+	%> />
+	<% if self.alert then%>
+		<input class="cbi-input-checkbox" type="checkbox" onclick="cbi_d_update(this.id); alert_message(this.id, '<%=self.alert[1]%>', '<%=self.alert[2]%>');" 
+		<%=attr("id", cbid) .. attr("name", cbid) .. attr("value", self.enabled or 1) ..
+		ifattr((self:cfgvalue(section) or self.default) == self.enabled, "checked", "checked") .. 
+		ifattr(self.hardDisabled == true, "disabled", "disabled")
+	%> />
+	<% else %>
+		<input class="cbi-input-checkbox" onclick="cbi_d_update(this.id); hide_show();" onchange="cbi_d_update(this.id);" type="checkbox"<%=
+			attr("id", cbid) .. attr("name", cbid) .. attr("value", self.enabled or 1) ..
+			ifattr((self:cfgvalue(section) or self.default) == self.enabled, "checked", "checked") .. 
+			ifattr(self.hardDisabled == true, "disabled", "disabled")
+		%> />
+		<% if self.info then%>
+			<span style="color: rgb(64, 64, 64);" onmouseover="ShowHint(this, '')" onmouseout="HideHint(this)">
+				<% if self.url then%>
+					<a class="overview-mini-info_icon" href="<%=self.url%>"></a>
+				<% end %>
+			</span>
+			<label class="enthcon" ><%=self.info %></label>
+		<% end %>
+	<%end%>
+	<% if self.user_info and (self:cfgvalue(section) or self.default) == self.enabled then%>
+		<span style="color: #808080; font-style: italic; font-size: 10px;"><%=self.user_info%></span>
+	<%end%>
+<%+cbi/valuefooter%>
+

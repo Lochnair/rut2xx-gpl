@@ -13,9 +13,8 @@ ADD_LOCAL_DOMAIN=1
 ADD_LOCAL_HOSTNAME=1
 
 CONFIGFILE="/var/etc/dnsmasq.conf"
-HOSTFILE="/tmp/hosts/dhcp"
-TRUSTANCHORSFILE="/usr/share/dnsmasq/trust-anchors.conf"
-TIMESTAMPFILE="/etc/dnsmasq.time"
+DNS_TC="/tmp/tmp_file/dnsmasq_pbridge.conf"
+lanaddr=""
 
 xappend() {
 	local value="$1"
@@ -43,12 +42,15 @@ dhcp_check() {
 
 	[ -s "$stamp" ] && return $(cat "$stamp")
 
-	udhcpc -n -q -s /bin/true -t 1 -i "$ifname" >&- && rv=1 || rv=0
+	udhcpc -n -q -s /sbin/get_dhcp_gateway.sh -t 1 -i "$ifname" >&- && rv=1 || rv=0
 
-	[ $rv -eq 1 ] && \
+	if [ $rv -eq 1 ]; then
 		logger -t dnsmasq \
 			"found already running DHCP-server on interface '$ifname'" \
 			"refusing to start, use 'option force 1' to override"
+		gateway=`cat /tmp/dhcp_gateway`
+		/usr/bin/eventslog -i -t EVENTS -n "DHCP" -e "Found already running DHCP-server with $gateway gateway"
+	fi
 
 	echo $rv > "$stamp"
 	return $rv
@@ -315,16 +317,14 @@ dhcp_host_add() {
 	}
 
 	config_get mac "$cfg" mac
-	if [ -n "$mac" ]; then
-		# --dhcp-host=00:20:e0:3b:13:af,192.168.0.199,lap
-		macs=""
-		for m in $mac; do append macs "$m" ","; done
-	else
-		# --dhcp-host=lap,192.168.0.199
+	[ -z "$mac" ] && {
 		[ -n "$name" ] || return 0
-		macs="$name"
+		mac="$name"
 		name=""
-	fi
+	}
+
+	macs=""
+	for m in $mac; do append macs "$m" ","; done
 
 	config_get tag "$cfg" tag
 
@@ -373,11 +373,12 @@ dhcp_boot_add() {
 	[ -n "$filename" ] || return 0
 
 	config_get servername "$cfg" servername
+	[ -n "$servername" ] || return 0
+
 	config_get serveraddress "$cfg" serveraddress
+	[ -n "$serveraddress" ] || return 0
 
-	[ -n "$serveraddress" -a ! -n "$servername" ] && return 0
-
-	xappend "--dhcp-boot=${networkid:+net:$networkid,}${filename}${servername:+,$servername}${serveraddress:+,$serveraddress}"
+	xappend "--dhcp-boot=${networkid:+net:$networkid,}$filename,$servername,$serveraddress"
 
 	config_get_bool force "$cfg" force 0
 
@@ -404,7 +405,27 @@ dhcp_add() {
 		DNS_SERVERS="$DNS_SERVERS $dnsserver"
 	}
 
-	append_bool "$cfg" ignore "--no-dhcp-interface=$ifname" && return 0
+	config_get ignore "$cfg" ignore 0
+	if [ "$ignore" -eq 1 ]; then
+			if [ "$ifname" == "br-lan" ]; then
+					pmethod=`uci get -q network.ppp.method`
+					ppp_enabled=`uci get -q network.ppp.enabled`
+					if [ "$pmethod" == "pbridge" ]; then
+							if [ "$ppp_enabled" == "0" ]; then
+									xappend "no-dhcp-interface=$ifname"
+							fi
+					else
+						config_get dhcp_relay_enabled dhcp_relay enabled 0
+						if [ "$dhcp_relay_enabled" -eq 0 ]; then
+							xappend "no-dhcp-interface=$ifname"
+						fi
+					fi
+			else
+					xappend "no-dhcp-interface=$ifname"
+			fi
+			return 0
+	fi
+	#append_bool "$cfg" ignore "--no-dhcp-interface=$ifname" && return 0
 
 	# Do not support non-static interfaces for now
 	[ static = "$proto" ] || return 0
@@ -421,6 +442,7 @@ dhcp_add() {
 	config_get leasetime "$cfg" leasetime
 	config_get options "$cfg" options
 	config_get_bool dynamicdhcp "$cfg" dynamicdhcp 1
+	config_get_bool force_options "$cfg" force_options 0
 
 	leasetime="${leasetime:-12h}"
 	start="$(dhcp_calc "${start:-100}")"
@@ -430,7 +452,10 @@ dhcp_add() {
 	if [ "$dynamicdhcp" = "0" ]; then END="static"; fi
 	xappend "--dhcp-range=$networkid,$START,$END,$NETMASK,$leasetime${options:+ $options}"
 
-	dhcp_option_add "$cfg" "$networkid"
+	config_get_bool enable_ra "$cfg" enable_ra
+	[ "$enable_ra" = "1" ] && xappend "--dhcp-range=::1,constructor:br-lan,ra-only,12h" && xappend "--enable-ra"
+
+	dhcp_option_add "$cfg" "$networkid" "$force_options"
 }
 
 dhcp_option_add() {
@@ -458,10 +483,13 @@ dhcp_domain_add() {
 	[ -n "$ip" ] || return 0
 
 	for name in $names; do
-		record="${record:+$record }$name"
+		[ "${name%.*}" == "$name" ] && \
+			name="$name${DOMAIN:+.$DOMAIN}"
+
+		record="${record:+$record/}$name"
 	done
 
-	echo "$ip $record" >> $HOSTFILE
+	xappend "--address=/$record/$ip"
 }
 
 dhcp_srv_add() {
@@ -535,6 +563,22 @@ dhcp_hostrecord_add() {
 	xappend "--host-record=$record"
 }
 
+dhcp_relay_add() {
+	local cfg="$1"
+	local server interface
+
+	config_get enabled_srv "$cfg" enabled
+	config_get server "$cfg" server
+	[ -n "$server" ] && [ "$enabled_srv" = "1" ] || return 0
+
+	config_get interface "$cfg" interface
+	if [ -z "$interface" ]; then
+		xappend "--dhcp-relay=$lanaddr,$server"
+	else
+		xappend "--dhcp-relay=$lanaddr,$server,$interface"
+	fi
+}
+
 service_triggers()
 {
 	procd_add_reload_trigger "dhcp"
@@ -548,10 +592,25 @@ boot() {
 start_service() {
 	include /lib/functions
 
+	config_load demand
+
+	local demand
+	config_get demand "ppp" demand
+	if [ -z "$demand" ]; then
+		demand=0
+	fi
+
+	config_load multiwan
+	local multiwan
+	config_get multiwan "config" enabled
+	if [ -z "$multiwan" ]; then
+		multiwan=0
+	fi
+
 	config_load dhcp
 
 	procd_open_instance
-	procd_set_param command $PROG -C $CONFIGFILE -k -x /var/run/dnsmasq/dnsmasq.pid
+	procd_set_param command $PROG -C $CONFIGFILE -k
 	procd_set_param file $CONFIGFILE
 	procd_set_param respawn
 
@@ -576,9 +635,19 @@ start_service() {
 	echo "# auto-generated config file from /etc/config/dhcp" > $HOSTFILE
 
 	# if we did this last, we could override auto-generated config
-	[ -f /etc/dnsmasq.conf ] && {
-		xappend "--conf-file=/etc/dnsmasq.conf"
-	}
+	ppp_method=`uci get -q network.ppp.method`
+	ppp_enabled=`uci get -q network.ppp.enabled`
+	if [ "$ppp_method" == "pbridge" ] && [ "$ppp_enabled" != "0" ]; then
+		[ -f $DNS_TC ] && {
+			xappend "--conf-file=$DNS_TC"
+		}
+	fi
+	if [ "$ppp_method" == "bridge" ] && [ "$ppp_enabled" != "0" ]; then
+		[ -f $DNS_TC ] && {
+			xappend "--conf-file=$DNS_TC"
+		}
+	fi
+
 
 	args=""
 	config_foreach dnsmasq dnsmasq
@@ -596,11 +665,12 @@ start_service() {
 	config_foreach dhcp_hostrecord_add hostrecord
 
 	# add own hostname
-	local lanaddr
 	[ $ADD_LOCAL_HOSTNAME -eq 1 ] && network_get_ipaddr lanaddr "lan" && {
-		local hostname="$(uci_get system @system[0] hostname OpenWrt)"
-		dhcp_domain_add "" "$hostname" "$lanaddr"
+		local hostname="$(uci_get system system hostname OpenWrt)"
+		local host=$(echo "$hostname" | sed 's/[^[:print:]]//g')
+		dhcp_hostrecord_add "" "${host%.$DOMAIN}${DOMAIN:+.$DOMAIN ${host%.$DOMAIN}}" "$lanaddr"
 	}
+	dhcp_relay_add dhcp_relay
 
 	echo >> $CONFIGFILE
 	config_foreach dhcp_srv_add srvhost
@@ -620,7 +690,13 @@ start_service() {
 	[ $ADD_LOCAL_DOMAIN -eq 1 ] && [ -n "$DOMAIN" ] && {
 		echo "search $DOMAIN" >> /tmp/resolv.conf
 	}
-	DNS_SERVERS="$DNS_SERVERS 127.0.0.1"
+
+	if [ "$demand" -gt 0 -a "$multiwan" -eq 0 ]; then
+		DNS_SERVERS="$DNS_SERVERS 127.0.0.1 ::1 8.8.8.8"
+	else
+		DNS_SERVERS="$DNS_SERVERS 127.0.0.1 ::1"
+	fi
+
 	for DNS_SERVER in $DNS_SERVERS ; do
 		echo "nameserver $DNS_SERVER" >> /tmp/resolv.conf
 	done

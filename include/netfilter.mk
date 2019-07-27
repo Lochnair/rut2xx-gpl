@@ -198,25 +198,36 @@ $(eval $(call nf_add,IPT_NAT,CONFIG_IP_NF_TARGET_REDIRECT, $(P_XT)xt_REDIRECT))
 $(eval $(call nf_add,IPT_NAT_EXTRA,CONFIG_IP_NF_TARGET_NETMAP, $(P_XT)xt_NETMAP))
 
 
-# nathelper
+# nathelper-ftp
 
-$(eval $(call nf_add,NF_NATHELPER,CONFIG_NF_CONNTRACK_FTP, $(P_XT)nf_conntrack_ftp))
-$(eval $(call nf_add,NF_NATHELPER,CONFIG_NF_NAT_FTP, $(P_XT)nf_nat_ftp))
+$(eval $(call nf_add,NF_NATHELPER_FTP,CONFIG_NF_CONNTRACK_FTP, $(P_XT)nf_conntrack_ftp))
+$(eval $(call nf_add,NF_NATHELPER_FTP,CONFIG_NF_NAT_FTP, $(P_XT)nf_nat_ftp))
 
+# nathelper-gre
+
+$(eval $(call nf_add,NF_NATHELPER_GRE,CONFIG_NF_CT_PROTO_GRE, $(P_XT)nf_conntrack_proto_gre))
+$(eval $(call nf_add,NF_NATHELPER_GRE,CONFIG_NF_NAT_PROTO_GRE, $(P_V4)nf_nat_proto_gre))
+
+# nathelper-pptp
+
+$(eval $(call nf_add,NF_NATHELPER_PPTP,CONFIG_NF_CONNTRACK_PPTP, $(P_XT)nf_conntrack_pptp))
+$(eval $(call nf_add,NF_NATHELPER_PPTP,CONFIG_NF_NAT_PPTP, $(P_V4)nf_nat_pptp))
+
+# nathelper-h323
+
+$(eval $(call nf_add,NF_NATHELPER_H323,CONFIG_NF_CONNTRACK_H323, $(P_XT)nf_conntrack_h323))
+$(eval $(call nf_add,NF_NATHELPER_H323,CONFIG_NF_NAT_H323, $(P_V4)nf_nat_h323))
+
+# nathelper-sip
+
+$(eval $(call nf_add,NF_NATHELPER_SIP,CONFIG_NF_CONNTRACK_SIP, $(P_XT)nf_conntrack_sip))
+$(eval $(call nf_add,NF_NATHELPER_SIP,CONFIG_NF_NAT_SIP, $(P_XT)nf_nat_sip))
 
 # nathelper-extra
 
 $(eval $(call nf_add,NF_NATHELPER_EXTRA,CONFIG_NF_CONNTRACK_BROADCAST, $(P_XT)nf_conntrack_broadcast))
 $(eval $(call nf_add,NF_NATHELPER_EXTRA,CONFIG_NF_CONNTRACK_AMANDA, $(P_XT)nf_conntrack_amanda))
 $(eval $(call nf_add,NF_NATHELPER_EXTRA,CONFIG_NF_NAT_AMANDA, $(P_XT)nf_nat_amanda))
-$(eval $(call nf_add,NF_NATHELPER_EXTRA,CONFIG_NF_CT_PROTO_GRE, $(P_XT)nf_conntrack_proto_gre))
-$(eval $(call nf_add,NF_NATHELPER_EXTRA,CONFIG_NF_NAT_PROTO_GRE, $(P_V4)nf_nat_proto_gre))
-$(eval $(call nf_add,NF_NATHELPER_EXTRA,CONFIG_NF_CONNTRACK_H323, $(P_XT)nf_conntrack_h323))
-$(eval $(call nf_add,NF_NATHELPER_EXTRA,CONFIG_NF_NAT_H323, $(P_V4)nf_nat_h323))
-$(eval $(call nf_add,NF_NATHELPER_EXTRA,CONFIG_NF_CONNTRACK_PPTP, $(P_XT)nf_conntrack_pptp))
-$(eval $(call nf_add,NF_NATHELPER_EXTRA,CONFIG_NF_NAT_PPTP, $(P_V4)nf_nat_pptp))
-$(eval $(call nf_add,NF_NATHELPER_EXTRA,CONFIG_NF_CONNTRACK_SIP, $(P_XT)nf_conntrack_sip))
-$(eval $(call nf_add,NF_NATHELPER_EXTRA,CONFIG_NF_NAT_SIP, $(P_XT)nf_nat_sip))
 $(eval $(call nf_add,NF_NATHELPER_EXTRA,CONFIG_NF_CONNTRACK_SNMP, $(P_XT)nf_conntrack_snmp))
 $(eval $(call nf_add,NF_NATHELPER_EXTRA,CONFIG_NF_NAT_SNMP_BASIC, $(P_V4)nf_nat_snmp_basic))
 $(eval $(call nf_add,NF_NATHELPER_EXTRA,CONFIG_NF_CONNTRACK_TFTP, $(P_XT)nf_conntrack_tftp))
@@ -361,7 +372,11 @@ IPT_BUILTIN += $(NF_NAT6-y)
 IPT_BUILTIN += $(IPT_NAT-y)
 IPT_BUILTIN += $(IPT_NAT6-y)
 IPT_BUILTIN += $(IPT_NAT_EXTRA-y)
-IPT_BUILTIN += $(NF_NATHELPER-y)
+IPT_BUILTIN += $(NF_NATHELPER_FTP-y)
+IPT_BUILTIN += $(NF_NATHELPER_GRE-y)
+IPT_BUILTIN += $(NF_NATHELPER_PPTP-y)
+IPT_BUILTIN += $(NF_NATHELPER_H323-y)
+IPT_BUILTIN += $(NF_NATHELPER_SIP-y)
 IPT_BUILTIN += $(NF_NATHELPER_EXTRA-y)
 IPT_BUILTIN += $(IPT_ULOG-y)
 IPT_BUILTIN += $(IPT_DEBUG-y)

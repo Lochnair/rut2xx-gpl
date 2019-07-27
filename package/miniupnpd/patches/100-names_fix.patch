@@ -1,0 +1,22 @@
+--- a/genconfig.sh	2016-12-06 15:17:01.558909000 +0200
++++ b/genconfig.sh	2016-12-13 15:21:46.233576957 +0200
+@@ -75,7 +75,7 @@
+ 
+ # OpenWRT special case
+ if [ -f ./os.openwrt ]; then
+-	OS_NAME=OpenWRT
++	OS_NAME=Teltonika
+ 	OS_VERSION=$(cat ./os.openwrt)
+ fi
+ 
+@@ -301,8 +301,8 @@
+ 		FW=netfilter
+ 		V6SOCKETS_ARE_V6ONLY=`/sbin/sysctl -n net.ipv6.bindv6only`
+ 		;;
+-	OpenWRT)
+-		OS_URL=http://www.openwrt.org/
++	Teltonika)
++		OS_URL=""
+ 		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
+ 		FW=netfilter
+ 		;;

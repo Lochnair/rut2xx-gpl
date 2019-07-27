@@ -1,0 +1,14 @@
+# Put your custom commands here that should be executed once
+# the system init finished. By default this file does nothing.
+
+rmmod ath9k;
+rmmod ath9k_common;
+rmmod ath9k_hw;
+insmod /art/art.ko;
+sleep 1;
+mknod /dev/dk0 c 63 0;
+sleep 1;
+/art/nart.out&
+sleep 1;
+sh /art/nartwatch.sh&
+exit 0

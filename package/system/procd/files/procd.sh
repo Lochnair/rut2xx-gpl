@@ -18,20 +18,46 @@
 #     file: configuration files (array)
 #     netdev: bound network device (detects ifindex changes)
 #     limits: resource limits (passed to the process)
-#     user info: array with 1 values $username
+#     user: $username to run service as
+#     group: $groupname to run service as
+#     pidfile: file name to write pid into
+#     stdout: boolean whether to redirect commands stdout to syslog (default: 0)
+#     stderr: boolean whether to redirect commands stderr to syslog (default: 0)
+#     facility: syslog facility used when logging to syslog (default: daemon)
 #
 #   No space separation is done for arrays/tables - use one function argument per command line argument
 #
 # procd_close_instance():
 #   Complete the instance being prepared
 #
+# procd_running(service, [instance]):
+#   Checks if service/instance is currently running
+#
 # procd_kill(service, [instance]):
 #   Kill a service instance (or all instances)
 #
+# procd_send_signal(service, [instance], [signal])
+#   Send a signal to a service instance (or all instances)
+#
 
-. $IPKG_INSTROOT/usr/share/libubox/jshn.sh
+. "$IPKG_INSTROOT/usr/share/libubox/jshn.sh"
 
+PROCD_RELOAD_DELAY=1000
 _PROCD_SERVICE=
+
+procd_lock() {
+	local basescript=$(readlink "$initscript")
+	local service_name="$(basename ${basescript:-$initscript})"
+
+	flock -n 1000 &> /dev/null
+	if [ "$?" != "0" ]; then
+		exec 1000>"$IPKG_INSTROOT/var/lock/procd_${service_name}.lock"
+		flock 1000
+		if [ "$?" != "0" ]; then
+			logger "warning: procd flock for $service_name failed"
+		fi
+	fi
+}
 
 _procd_call() {
 	local old_cb
@@ -42,6 +68,7 @@ _procd_call() {
 }
 
 _procd_wrapper() {
+	procd_lock
 	while [ -n "$1" ]; do
 		eval "$1() { _procd_call _$1 \"\$@\"; }"
 		shift
@@ -71,8 +98,13 @@ _procd_open_service() {
 
 _procd_close_service() {
 	json_close_object
+	_procd_open_trigger
 	service_triggers
-	_procd_ubus_call set
+	_procd_close_trigger
+	_procd_open_data
+	service_data
+	_procd_close_data
+	_procd_ubus_call ${1:-set}
 }
 
 _procd_add_array_data() {
@@ -116,17 +148,42 @@ _procd_open_instance() {
 }
 
 _procd_open_trigger() {
+	let '_procd_trigger_open = _procd_trigger_open + 1'
+	[ "$_procd_trigger_open" -gt 1 ] && return
 	json_add_array "triggers"
 }
 
+_procd_close_trigger() {
+	let '_procd_trigger_open = _procd_trigger_open - 1'
+	[ "$_procd_trigger_open" -lt 1 ] || return
+	json_close_array
+}
+
+_procd_open_data() {
+	let '_procd_data_open = _procd_data_open + 1'
+	[ "$_procd_data_open" -gt 1 ] && return
+	json_add_object "data"
+}
+
+_procd_close_data() {
+	let '_procd_data_open = _procd_data_open - 1'
+	[ "$_procd_data_open" -lt 1 ] || return
+	json_close_object
+}
+
 _procd_open_validate() {
+	json_select ..
 	json_add_array "validate"
+}
+
+_procd_close_validate() {
+	json_close_array
+	json_select triggers
 }
 
 _procd_add_jail() {
 	json_add_object "jail"
 	json_add_string name "$1"
-	json_add_string root "/tmp/.jail/$1"
 
 	shift
 	
@@ -136,6 +193,7 @@ _procd_add_jail() {
 		ubus)	json_add_boolean "ubus" "1";;
 		procfs)	json_add_boolean "procfs" "1";;
 		sysfs)	json_add_boolean "sysfs" "1";;
+		ronly)	json_add_boolean "ronly" "1";;
 		esac
 	done
 	json_add_object "mount"
@@ -192,16 +250,24 @@ _procd_set_param() {
 			json_add_string "" "$@"
 			json_close_array
 		;;
-		nice)
+		nice|term_timeout)
 			json_add_int "$type" "$1"
 		;;
-		user|seccomp)
+		reload_signal)
+			json_add_int "$type" $(kill -l "$1")
+		;;
+		pidfile|user|group|seccomp|capabilities|facility)
 			json_add_string "$type" "$1"
 		;;
-		stdout|stderr)
+		stdout|stderr|no_new_privs)
 			json_add_boolean "$type" "$1"
 		;;
 	esac
+}
+
+_procd_add_timeout() {
+	[ "$PROCD_RELOAD_DELAY" -gt 0 ] && json_add_int "" "$PROCD_RELOAD_DELAY"
+	return 0
 }
 
 _procd_add_interface_trigger() {
@@ -222,6 +288,7 @@ _procd_add_interface_trigger() {
 	json_close_array
 
 	json_close_array
+	_procd_add_timeout
 	json_close_array
 }
 
@@ -252,7 +319,7 @@ _procd_add_config_trigger() {
 	json_close_array
 
 	json_close_array
-
+	_procd_add_timeout
 	json_close_array
 }
 
@@ -316,21 +383,38 @@ _procd_append_param() {
 }
 
 _procd_close_instance() {
+	local respawn_vals
+	_json_no_warning=1
+	if json_select respawn ; then
+		json_get_values respawn_vals
+		if [ -z "$respawn_vals" ]; then
+			local respawn_threshold=$(uci_get system.@service[0].respawn_threshold)
+			local respawn_timeout=$(uci_get system.@service[0].respawn_timeout)
+			local respawn_retry=$(uci_get system.@service[0].respawn_retry)
+			_procd_add_array_data ${respawn_threshold:-3600} ${respawn_timeout:-5} ${respawn_retry:-5}
+		fi
+		json_select ..
+	fi
+
 	json_close_object
-}
-
-_procd_close_trigger() {
-	json_close_array
-}
-
-_procd_close_validate() {
-	json_close_array
 }
 
 _procd_add_instance() {
 	_procd_open_instance
 	_procd_set_param command "$@"
 	_procd_close_instance
+}
+
+procd_running() {
+	local service="$1"
+	local instance="${2:-instance1}"
+	local running
+
+	json_init
+	json_add_string name "$service"
+	running=$(_procd_ubus_call list | jsonfilter -e "@.$service.instances.${instance}.running")
+
+	[ "$running" = "true" ]
 }
 
 _procd_kill() {
@@ -341,6 +425,22 @@ _procd_kill() {
 	[ -n "$service" ] && json_add_string name "$service"
 	[ -n "$instance" ] && json_add_string instance "$instance"
 	_procd_ubus_call delete
+}
+
+_procd_send_signal() {
+	local service="$1"
+	local instance="$2"
+	local signal="$3"
+
+	case "$signal" in
+		[A-Z]*)	signal="$(kill -l "$signal" 2>/dev/null)" || return 1;;
+	esac
+
+	json_init
+	json_add_string name "$service"
+	[ -n "$instance" -a "$instance" != "*" ] && json_add_string instance "$instance"
+	[ -n "$signal" ] && json_add_int signal "$signal"
+	_procd_ubus_call signal
 }
 
 procd_open_data() {
@@ -376,7 +476,7 @@ procd_add_mdns_service() {
 	json_add_int port "$port"
 	[ -n "$1" ] && {
 		json_add_array txt
-		for txt in $@; do json_add_string "" $txt; done
+		for txt in "$@"; do json_add_string "" "$txt"; done
 		json_select ..
 	}
 	json_select ..
@@ -385,7 +485,7 @@ procd_add_mdns_service() {
 procd_add_mdns() {
 	procd_open_data
 	json_add_object "mdns"
-	procd_add_mdns_service $@
+	procd_add_mdns_service "$@"
 	json_close_object
 	procd_close_data
 }
@@ -403,6 +503,23 @@ uci_validate_section()
 	eval "$_result"
 	[ "$_error" = "0" ] || `/sbin/validate_data "$_package" "$_type" "$_name" "$@" 1> /dev/null`
 	return $_error
+}
+
+uci_load_validate() {
+	local _package="$1"
+	local _type="$2"
+	local _name="$3"
+	local _function="$4"
+	local _option
+	local _result
+	shift; shift; shift; shift
+	for _option in "$@"; do
+		eval "local ${_option%%:*}"
+	done
+	uci_validate_section "$_package" "$_type" "$_name" "$@"
+	_result=$?
+	[ -n "$_function" ] || return $_result
+	eval "$_function \"\$_name\" \"\$_result\""
 }
 
 _procd_wrapper \
@@ -427,4 +544,5 @@ _procd_wrapper \
 	procd_append_param \
 	procd_add_validation \
 	procd_set_config_changed \
-	procd_kill
+	procd_kill \
+	procd_send_signal

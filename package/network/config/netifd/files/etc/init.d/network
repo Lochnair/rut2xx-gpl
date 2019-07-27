@@ -4,16 +4,43 @@ START=20
 STOP=90
 
 USE_PROCD=1
-
 init_switch() {
 	setup_switch() { return 0; }
-
 	include /lib/network
 	setup_switch
+	(sleep 10; /sbin/chroutes) &
+}
+
+
+disable_sta() {
+	config_get mode "$1" mode ""
+	[[ "$mode" != "sta" ]] && return
+	logger -t "network" "Disabling STA because there's two or more Access Points"
+	uci -q set wireless.$1.user_enable=0
+}
+
+check_sta_mode() {
+	if [ "`grep -o "mode 'ap'" /etc/config/wireless | wc -l`" -gt 1 ]; then
+		if [ ! -z "`grep sta /etc/config/wireless`" ]; then
+			config_load "wireless"
+			config_foreach disable_sta "wifi-iface"
+		fi
+	fi
 }
 
 start_service() {
+	# Start ioman in parallel because swconfig is mainly I/O bound
+	# to save boot time by fully using CPU time
+	(sleep 1 && /etc/init.d/ioman start) &
 	init_switch
+
+	/sbin/wifi detect > /tmp/wireless.tmp
+	[ -s /tmp/wireless.tmp ] && {
+		cat /tmp/wireless.tmp >> /etc/config/wireless
+	}
+	rm -f /tmp/wireless.tmp
+
+	check_sta_mode
 
 	procd_open_instance
 	procd_set_param command /sbin/netifd
@@ -27,9 +54,12 @@ start_service() {
 }
 
 reload_service() {
+        local rv=0
+	killall -s USR1 port_event_checker
 	init_switch
-	ubus call network reload
+	ubus call network reload || rv=1
 	/sbin/wifi reload_legacy
+	return $rv
 }
 
 stop() {
@@ -139,6 +169,7 @@ service_triggers()
 }
 
 restart() {
+	killall -s USR1 port_event_checker
 	ifdown -a
 	sleep 1
 	trap '' TERM

@@ -1,0 +1,7 @@
+#!/bin/sh
+
+. /lib/functions.sh
+
+cp /rom/etc/ppp/options.pptpd /etc/ppp/options.pptpd
+cp /rom/etc/ppp/options.xl2tpd /etc/ppp/options.xl2tpd
+exit 0

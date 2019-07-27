@@ -9,7 +9,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=comgt
 PKG_VERSION:=0.32
-PKG_RELEASE:=25
+PKG_RELEASE:=27
 
 PKG_SOURCE:=$(PKG_NAME).$(PKG_VERSION).tgz
 PKG_SOURCE_URL:=@SF/comgt
@@ -66,7 +66,7 @@ define Package/comgt/install
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/comgt $(1)/usr/bin/
 	$(LN) comgt $(1)/usr/bin/gcom
 	$(INSTALL_DIR) $(1)/etc/chatscripts
-	$(INSTALL_DATA) ./files/3g.chat $(1)/etc/chatscripts/3g.chat
+	#$(INSTALL_DATA) ./files/3g.chat $(1)/etc/chatscripts/3g.chat
 	$(INSTALL_DATA) ./files/evdo.chat $(1)/etc/chatscripts/evdo.chat
 	$(INSTALL_DIR) $(1)/etc/gcom
 	$(INSTALL_DATA) ./files/setpin.gcom $(1)/etc/gcom/setpin.gcom
@@ -77,9 +77,9 @@ define Package/comgt/install
 	$(INSTALL_DATA) ./files/getcnum.gcom $(1)/etc/gcom/getcnum.gcom
 	$(INSTALL_DATA) ./files/getimsi.gcom $(1)/etc/gcom/getimsi.gcom
 	$(INSTALL_DIR) $(1)/etc/hotplug.d/tty
-	$(INSTALL_DATA) ./files/3g.usb $(1)/etc/hotplug.d/tty/30-3g
+	#$(INSTALL_DATA) ./files/3g.usb $(1)/etc/hotplug.d/tty/30-3g
 	$(INSTALL_DIR) $(1)/lib/netifd/proto
-	$(INSTALL_BIN) ./files/3g.sh $(1)/lib/netifd/proto/3g.sh
+	#$(INSTALL_BIN) ./files/3g.sh $(1)/lib/netifd/proto/3g.sh
 endef
 
 define Package/comgt-directip/install

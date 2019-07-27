@@ -1,0 +1,4 @@
+#!/bin/sh
+
+ln -s /usr/www/hotspot /www/hotspot/cgi
+ln -s /www/luci-static/ /www/hotspot/luci-static

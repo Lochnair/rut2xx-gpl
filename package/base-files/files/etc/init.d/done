@@ -2,9 +2,22 @@
 # Copyright (C) 2006 OpenWrt.org
 
 START=95
+
+check_modem() {
+	. /lib/teltonika-functions.sh
+	vidpid=`get_ext_vidpid_tlt`
+	if [ -z "$vidpid" ]; then
+		err1=`dmesg | grep -c "device descriptor read"`
+	        err2=`dmesg | grep -c "device not accepting address"`
+	        if [ "$err1" -ne 0 ] || [ "$err2" -ne 0 ]; then
+			echo "Modem error. Restarting modem"
+			/etc/init.d/modem restart
+		fi
+	fi
+}
+
 boot() {
 	mount_root done
-	rm -f /sysupgrade.tgz
 
 	# process user commands
 	[ -f /etc/rc.local ] && {
@@ -13,5 +26,12 @@ boot() {
 
 	# set leds to normal state
 	. /etc/diag.sh
+
+	# check for modem startup error
+	check_modem
+	
+	# reloading configs for uci (moved from wifid.init)
+        /sbin/reload_config
+
 	set_state done
 }

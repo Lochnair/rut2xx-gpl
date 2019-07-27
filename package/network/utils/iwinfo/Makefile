@@ -5,13 +5,14 @@
 #
 
 include $(TOPDIR)/rules.mk
+include $(INCLUDE_DIR)/download.mk
 
 PKG_NAME:=libiwinfo
 PKG_VERSION:=2015-06-01
 PKG_RELEASE=$(PKG_SOURCE_VERSION)
 
 PKG_SOURCE_PROTO:=git
-PKG_SOURCE_URL:=http://git.openwrt.org/project/iwinfo.git
+PKG_SOURCE_URL:=$(PROJECT_GIT)/project/iwinfo.git
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
 PKG_SOURCE_VERSION:=ade8b1b299cbd5748db1acf80dd3e9f567938371
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION)-$(PKG_SOURCE_VERSION).tar.gz

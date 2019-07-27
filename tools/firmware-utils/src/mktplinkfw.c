@@ -85,7 +85,8 @@ struct file_info {
 struct fw_header {
 	uint32_t	version;	/* header version */
 	char		vendor_name[24];
-	char		fw_version[36];
+	char		fw_version[32];
+	char		serial_validation[4]; /* validation for serial number with 10 symbols */
 	uint32_t	hw_id;		/* hardware id */
 	uint32_t	hw_rev;		/* hardware revision */
 	uint32_t	unk1;
@@ -105,7 +106,8 @@ struct fw_header {
 	uint16_t	ver_hi;
 	uint16_t	ver_mid;
 	uint16_t	ver_lo;
-	uint8_t		pad[354];
+	char		fw_full_name[32];
+	uint8_t		pad[322];
 } __attribute__ ((packed));
 
 struct flash_layout {
@@ -131,6 +133,7 @@ static char *progname;
 static char *vendor = "TP-LINK Technologies";
 static char *version = "ver. 1.0";
 static char *fw_ver = "0.0.0";
+static char *sn = "0000";
 
 static char *board_id;
 static struct board_info *board;
@@ -745,6 +748,15 @@ static void fill_header(char *buf, int len)
 	hdr->version = htonl(HEADER_VERSION_V1);
 	strncpy(hdr->vendor_name, vendor, sizeof(hdr->vendor_name));
 	strncpy(hdr->fw_version, version, sizeof(hdr->fw_version));
+	strncpy(hdr->serial_validation, sn, sizeof(hdr->serial_validation));
+	
+	char fw_name[32];
+	FILE *fileptr;
+	fileptr = fopen("../../../../build_dir/target-mips_34kc_uClibc-0.9.33.2/root-ar71xx/etc/version", "r");
+	fscanf(fileptr, "%s", fw_name);
+	fclose(fileptr);
+	strncpy(hdr->fw_full_name, fw_name, sizeof(hdr->fw_full_name));
+	
 	hdr->hw_id = htonl(hw_id);
 	hdr->hw_rev = htonl(hw_rev);
 
@@ -1016,6 +1028,7 @@ static int inspect_fw(void)
 
 	inspect_fw_pstr("Vendor name", hdr->vendor_name);
 	inspect_fw_pstr("Firmware version", hdr->fw_version);
+	inspect_fw_pstr("Serial validation", hdr->serial_validation);
 	board = find_board_by_hwid(ntohl(hdr->hw_id));
 	if (board) {
 		layout = find_layout(board->layout_id);
@@ -1118,7 +1131,7 @@ int main(int argc, char *argv[])
 	while ( 1 ) {
 		int c;
 
-		c = getopt(argc, argv, "a:B:H:E:F:L:V:N:W:ci:k:r:R:o:xX:hsSjv:");
+		c = getopt(argc, argv, "a:B:H:E:F:L:V:N:T:W:ci:k:r:R:o:xX:hsSjv:");
 		if (c == -1)
 			break;
 
@@ -1152,6 +1165,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'N':
 			vendor = optarg;
+			break;
+		case 'T':
+			sn = optarg;
 			break;
 		case 'c':
 			combined++;

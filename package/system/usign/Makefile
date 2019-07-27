@@ -1,11 +1,12 @@
 include $(TOPDIR)/rules.mk
+include $(INCLUDE_DIR)/download.mk
 
 PKG_NAME:=usign
 PKG_VERSION:=2015-05-08
 PKG_RELEASE=$(PKG_SOURCE_VERSION)
 
 PKG_SOURCE_PROTO:=git
-PKG_SOURCE_URL:=git://git.openwrt.org/project/usign.git
+PKG_SOURCE_URL:=$(PROJECT_GIT)/project/usign.git
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
 PKG_SOURCE_VERSION:=cf8dcdb8a4e874c77f3e9a8e9b643e8c17b19131
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION)-$(PKG_SOURCE_VERSION).tar.gz

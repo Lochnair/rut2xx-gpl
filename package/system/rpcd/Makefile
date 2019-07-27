@@ -60,6 +60,7 @@ define Package/rpcd/install
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/rpcd $(1)/sbin/rpcd
 	$(INSTALL_DIR) $(1)/usr/share/rpcd/acl.d
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/unauthenticated.json $(1)/usr/share/rpcd/acl.d/unauthenticated.json
+	$(INSTALL_BIN) ./files/superuser.json $(1)/usr/share/rpcd/acl.d/superuser.json
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) ./files/rpcd.config $(1)/etc/config/rpcd
 endef

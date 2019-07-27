@@ -1,0 +1,109 @@
+<%#
+LuCI - Lua Configuration Interface
+Copyright 2008 Steven Barth <steven@midlink.org>
+Copyright 2008 Jo-Philipp Wich <xm@leipzig.freifunk.net>
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+$Id: flashops.htm 7798 2011-10-26 23:43:04Z jow $
+
+-%>
+<%
+local ds = require "luci.dispatcher"
+file_err_code = file_err_code or 0
+%>
+
+
+<%+header%>
+<script type="text/JavaScript" src="/luci-static/default/upload-validation.js"></script>
+<script type="text/javascript" src="<%=resource%>/cbi.js"></script>
+<script type="text/javascript">//<![CDATA[
+	function change(){
+		if(document.getElementById('from').value=="server"){
+			document.getElementById("archive").style.display = "none";
+			document.getElementById("input_label").style.display = "none";
+			document.getElementById("restore_backup_form").action=document.getElementById("server_form").value;
+			document.getElementById("submit-button-config").value = "Upgrade";
+			document.getElementById("submit-button-config").onclick = '';
+		}else{
+			document.getElementById("archive").style.display = "";
+			document.getElementById("input_label").style.display = "";
+			document.getElementById("restore_backup_form").action=document.getElementById("file_form").value;
+			document.getElementById("submit-button-config").value = "Upload archive";
+			document.getElementById("submit-button-config").onclick = function() { return CheckFilesize('archive', '2097152', 'No file selected, please select a file', 'Selected file is empty'); };
+		}
+	}
+
+	<% if file_err_code == 1 then%>
+	var err_div = document.getElementById("err_message")
+	if(err_div){
+		err_div.innerHTML = 'Incompatible backup file selected, please choose another file';
+	}else{
+		var success = document.getElementById("maincontent");
+		success.insertAdjacentHTML("afterBegin", '<div id="err_message" class="alert-message error"> Incompatible backup file selected, please choose another file </div>');
+	}
+	<% end %>
+
+//]]></script>
+
+<% if download_error == 1 then %>
+	<div id="err_message" class="alert-message error"> <%=translate(error_message)%></div>
+<% end %>
+
+<h2><a id="content" name="content"><%=translate("Backup")%></a></h2>
+<div class="cbi-map-descr"><%=translate("")%> </div>
+
+<fieldset class="cbi-section">
+		<legend><%=translate("Backup Configuration")%></legend>
+		<form method="post" id="download_backup_form" action="<%=luci.dispatcher.build_url("admin", "system", "admin", "backup")%>" enctype="multipart/form-data">
+		<div class="cbi-section-node">
+			<div class="cbi-value<% if not reset_avail then %> cbi-value-last<% end %>">
+				<label class="cbi-value-title" for="image">
+					<span onmouseout="HideHint(this)" onmouseover="ShowHint(this, '<%=translate('Download current router settings file to personal computer')%>')"/>
+					<%=translate("Backup archive")%>:
+				</label>
+				<div class="cbi-value-field">
+					<input class="cbi-button cbi-button-apply1" type="submit" name="backup" value="<%=translate('Download')%>"/>
+				</div>
+			</div>
+			<br>
+		</div>
+		</form>
+
+		<br>
+		<br>
+		<form method="post" id="restore_backup_form" action="<%=REQUEST_URI%>" enctype="multipart/form-data">
+		<input type="hidden" id="file_form" value="<%=luci.dispatcher.build_url("admin", "system", "admin", "backup")%>"/>
+		<input type="hidden" id="server_form" value="<%=luci.dispatcher.build_url("admin", "system", "admin","auto")%>"/>
+
+		<legend><%=translate("Restore Configuration")%></legend>
+			<br>
+			<div class="cbi-value-title" id="block_keep_o">
+				<label class="cbi-value-title" for="from"></label>
+				<div class="cbi-value-field">
+					<select id="from" onchange="change()">
+						<option value="file">Upgrade from file</option>
+						<option value="server">Upgrade from FOTA</option>
+					</select>
+				</div>
+			</div>
+			<div class="cbi-section-descr"><!--<%=translate("To restore configuration files, you can upload a previously generated backup archive here.")%>--></div>
+			<div class="cbi-section-node">
+				<div class="cbi-value cbi-value-last">
+					<label id="input_label" class="cbi-value-title" for="archive"><span onmouseout="HideHint(this)" onmouseover="ShowHint(this, '<%=translate('To restore configuration files, you can upload a previously generated backup archive here')%>')"</span><%=translate("Restore from backup")%>:</label>
+					<div class="cbi-value-field">
+						<input type="file" name="archive" id="archive">
+							<br>
+							<input id="submit-button-config" type="submit" class="cbi-button cbi-input-apply" onclick="return CheckFilesize('archive', '2097152', 'No file selected, please select a file', 'Selected file is empty');" name="restore" value="<%=translate("Upload archive")%>">
+					</div>
+				</div>
+			</div>
+			<div><i> *Only configuration file from identical device with same or lower firmware version can be uploaded </i></div>
+		</form>
+</fieldset>
+
+<%+footer%>

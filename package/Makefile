@@ -96,6 +96,7 @@ $(curdir)/install: $(TMP_DIR)/.build
 	rm -rf $(TARGET_DIR)
 	[ -d $(TARGET_DIR)/tmp ] || mkdir -p $(TARGET_DIR)/tmp
 	@$(FIND) `sed -e 's|.*|$(PACKAGE_DIR)$(if $(CONFIG_PER_FEED_REPO),/*)/&_*.ipk|' $(PACKAGE_INSTALL_FILES)` | sort -u | $(OPKG) install
+	@echo  $(TOPDIR)/bin/ar71xx/packages/base/libbrand_1.0-1_ar71xx.ipk | $(OPKG) install
 	@for file in $(PACKAGE_INSTALL_FILES); do \
 		[ -s $$file.flags ] || continue; \
 		for flag in `cat $$file.flags`; do \

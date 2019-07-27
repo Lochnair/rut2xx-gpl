@@ -1,0 +1,35 @@
+#!/bin/sh /etc/rc.common
+APP=/usr/sbin/mqtt_pub
+START=99
+STOP=99
+setup_config() {
+	config_load mqtt_pub
+
+	config_get enabled "mqtt_pub" enabled "0"
+	if [ "$enabled" == "1" ]; then
+
+		config_get remote_addr "mqtt_pub" remote_addr
+		config_get remote_port "mqtt_pub" remote_port
+		config_get username "mqtt_pub" username ""
+		config_get password "mqtt_pub" password ""
+	fi
+
+}
+
+start() {
+	setup_config
+
+	if [ "$enabled" == "1" ]; then
+		if [ -n "$username" ] && [ -n "$password" ]; then
+			service_start $APP -h "$remote_addr" -p "$remote_port" -u "$username" -P "$password"
+		else
+			service_start $APP -h "$remote_addr" -p "$remote_port"
+		fi
+	fi
+
+}
+
+stop() {
+	service_stop $APP
+}
+

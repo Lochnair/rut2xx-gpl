@@ -63,6 +63,10 @@ define patch_libtool
 	);
 endef
 
+define forceautoreconf
+       @(cd $(1); \
+         autoreconf -f -i);
+endef
 
 PKG_LIBTOOL_PATHS?=$(CONFIGURE_PATH)
 PKG_AUTOMAKE_PATHS?=$(CONFIGURE_PATH)
@@ -81,6 +85,11 @@ endef
 define patch_libtool_target
   $(strip $(call patch_libtool, \
     $(PKG_BUILD_DIR)))
+endef
+
+define forceautoreconf_target
+  $(strip $(call forceautoreconf, \
+  $(PKG_BUILD_DIR)))
 endef
 
 define gettext_version_target
@@ -124,6 +133,9 @@ ifneq ($(filter autoreconf,$(PKG_FIXUP)),)
   endif
 endif
 
+ifneq ($(filter forceautoreconf,$(PKG_FIXUP)),)
+  Hooks/Configure/Pre += forceautoreconf_target
+endif
 
 HOST_FIXUP?=$(PKG_FIXUP)
 HOST_LIBTOOL_PATHS?=$(if $(PKG_LIBTOOL_PATHS),$(PKG_LIBTOOL_PATHS),.)

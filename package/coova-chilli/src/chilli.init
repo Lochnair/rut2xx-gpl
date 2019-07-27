@@ -1,0 +1,160 @@
+#!/bin/sh /etc/rc.common
+USE_PROCD=1
+
+START=99
+STOP=56
+
+DAEMON=/usr/sbin/chilli
+NAME=chilli
+
+. /usr/share/libubox/jshn.sh
+. /lib/functions.sh
+
+if [ -f /etc/default/chilli ] ; then
+	. /etc/default/chilli
+fi
+
+main_conf() {
+cat <<EOF > $2
+include /etc/chilli/$1/main.conf
+include /etc/chilli/$1/hs.conf
+include /etc/chilli/$1/local.conf
+
+ipup=/etc/chilli/up.sh
+ipdown=/etc/chilli/down.sh
+EOF
+}
+
+wait_for_wifi() {
+	json_load "$(/bin/ubus call network.wireless status)"
+	json_select "radio0"
+
+	if json_is_a "interfaces" array; then
+		local __idx=1
+		json_select "interfaces"
+		config_load wireless
+
+		while json_is_a "$__idx" object; do
+			json_select "$((__idx++))"
+			json_get_var ifname ifname
+			json_select ".."
+
+			if [ -z "$ifname" ]; then
+				return 1
+			fi
+		done
+	fi
+
+	return 0
+}
+
+make_config() {
+	local ifname section
+	local wifi_loaded=1
+	local counter=0
+	local disabled
+	local coova_section=$1
+	local hotspotid
+
+	#Laukiame kol pakils wifi
+	while [ $wifi_loaded -eq 1 ]; do
+		counter=$((counter+1))
+		wait_for_wifi
+		wifi_loaded=$?
+		[ "$wifi_loaded" = "1" ] && logger -t "$NAME" "Waiting for wifi"
+		[ $counter -gt 15 ] && return 1
+		sleep 1
+	done
+
+	json_load "$(/bin/ubus call network.wireless status)"
+	json_select "radio0"
+
+	if json_is_a "interfaces" array; then
+		local __idx=1
+
+		json_select "interfaces"
+		config_load wireless
+
+		while json_is_a "$__idx" object; do
+			json_select "$((__idx++))"
+			json_get_var section section
+			json_get_var ifname ifname
+			json_select ".."
+
+			DHCPIF=$ifname
+
+			#config_get hotspotid $section "hotspotid"
+			hotspotid=`uci -q get wireless.$section.hotspotid`
+			if [ "$coova_section" == "$hotspotid" ]; then
+				disabled=`uci -q get wireless.$section.disabled`
+				#config_get disabled "$section" "disabled" "0"
+				if [ -n "$DHCPIF" ] && [ "$disabled" != "1" ]; then
+					export DHCPIF
+					CONFIG=/etc/chilli/$DHCPIF/chilli.conf
+					logger -t "$NAME" "Config: $CONFIG"
+					if [ -e $CONFIG ]; then
+						logger -t "$NAME" "Config file $CONFIG exists."
+					else
+						[ ! -d "$CONFIG" ] && mkdir /etc/chilli/$DHCPIF
+						main_conf $DHCPIF $CONFIG
+					fi
+					return 0
+				else
+					return 1
+				fi
+			fi
+		done
+		return 1
+	else
+		return 1
+	fi
+}
+
+start_instances() {
+    local section=$1
+	local enabled
+
+	config_get enabled "$1" "enabled" 0
+    [[ ${enabled} -ne 1 ]] && return 0
+
+	make_config $section
+	[ "$?" = "1" ] && {
+		logger -t "$NAME" "Config not generated"
+		return 0
+	}
+
+	. /etc/chilli/functions $section
+	check_required
+	writeconfig
+	radiusconfig
+
+    procd_open_instance $section
+    procd_set_param command $DAEMON -f -c $CONFIG
+    procd_set_param pidfile /var/run/$NAME.$HS_LANIF.pid
+    procd_set_param respawn
+    procd_close_instance
+}
+
+start_service() {
+	#/usr/sbin/modprobe tun >/dev/null 2>&1
+	#echo 1 > /proc/sys/net/ipv4/ip_forward
+	logger -t "$NAME" "Start"
+	config_load coovachilli
+	config_foreach start_instances "general"
+}
+
+stop_service() {
+	/usr/sbin/statistics save >/dev/null 2>&1 &
+	crontab -l 2>&- | grep -v $0 | crontab -
+	logger -t $NAME "Stoping $NAME."
+}
+
+reload_service() {
+    stop
+    start
+}
+
+service_triggers()
+{
+	procd_add_reload_trigger "coovachilli" "firewall"
+}

@@ -1,11 +1,12 @@
 include $(TOPDIR)/rules.mk
+include $(INCLUDE_DIR)/download.mk
 
 PKG_NAME:=uclient
 PKG_VERSION:=2015-04-14
 PKG_RELEASE=$(PKG_SOURCE_VERSION)
 
 PKG_SOURCE_PROTO:=git
-PKG_SOURCE_URL:=http://git.openwrt.org/project/uclient.git
+PKG_SOURCE_URL:=$(PROJECT_GIT)/project/uclient.git
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
 PKG_SOURCE_VERSION:=81fdb8fdf1470e1c7bf3124ff20d17feaeb519ee
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION)-$(PKG_SOURCE_VERSION).tar.gz

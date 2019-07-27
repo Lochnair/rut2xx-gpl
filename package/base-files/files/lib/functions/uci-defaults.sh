@@ -120,43 +120,6 @@ EOF
 	UCIDEF_LEDS_CHANGED=1
 }
 
-ucidef_set_led_timer() {
-	local cfg="led_$1"
-	local name=$2
-	local sysfs=$3
-	local delayon=$4
-	local delayoff=$5
-
-	uci -q get system.$cfg && return 0
-
-	uci batch <<EOF
-set system.$cfg='led'
-set system.$cfg.name='$name'
-set system.$cfg.sysfs='$sysfs'
-set system.$cfg.trigger='timer'
-set system.$cfg.delayon='$delayon'
-set system.$cfg.delayoff='$delayoff'
-EOF
-	UCIDEF_LEDS_CHANGED=1
-}
-
-ucidef_set_led_mmc() {
-	local cfg="led_$1"
-	local name=$2
-	local sysfs=$3
-	local trigger=$4
-
-	uci -q get system.$cfg && return 0
-
-	uci batch <<EOF
-set system.$cfg='led'
-set system.$cfg.name='$name'
-set system.$cfg.sysfs='$sysfs'
-set system.$cfg.trigger='$trigger'
-EOF
-	UCIDEF_LEDS_CHANGED=1
-}
-
 ucidef_set_rssimon() {
 	local dev="$1"
 	local refresh="$2"
@@ -177,7 +140,7 @@ EOF
 
 ucidef_commit_leds()
 {
-	[ "$UCIDEF_LEDS_CHANGED" = "1" ] && uci commit system
+	[ "$UCIDEF_LEDS_CHANGED" == "1" ] && uci commit system
 }
 
 ucidef_set_interface_loopback() {
@@ -187,20 +150,17 @@ set network.loopback.ifname='lo'
 set network.loopback.proto='static'
 set network.loopback.ipaddr='127.0.0.1'
 set network.loopback.netmask='255.0.0.0'
-set network.globals='globals'
-set network.globals.ula_prefix='auto'
 EOF
 }
 
 ucidef_set_interface_raw() {
 	local cfg=$1
 	local ifname=$2
-	local proto=${3:-"none"}
 
 	uci batch <<EOF
 set network.$cfg='interface'
 set network.$cfg.ifname='$ifname'
-set network.$cfg.proto='$proto'
+set network.$cfg.proto='none'
 EOF
 }
 
@@ -210,12 +170,10 @@ ucidef_set_interface_lan() {
 	uci batch <<EOF
 set network.lan='interface'
 set network.lan.ifname='$ifname'
-set network.lan.force_link=1
 set network.lan.type='bridge'
 set network.lan.proto='static'
 set network.lan.ipaddr='192.168.1.1'
 set network.lan.netmask='255.255.255.0'
-set network.lan.ip6assign='60'
 EOF
 }
 
@@ -226,9 +184,6 @@ ucidef_set_interface_wan() {
 set network.wan='interface'
 set network.wan.ifname='$ifname'
 set network.wan.proto='dhcp'
-set network.wan6='interface'
-set network.wan6.ifname='$ifname'
-set network.wan6.proto='dhcpv6'
 EOF
 }
 

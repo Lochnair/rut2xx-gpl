@@ -1,0 +1,41 @@
+#!/bin/sh
+
+configured=0
+
+chech_interface() {
+    local section=$1; local interface;
+
+    config_get interface "$section" interface
+
+    [ "$interface" == "$INTERFACE" ] && configured=1
+}
+
+[ "$ACTION" == "ifup" -o "$ACTION" == "ifdown" ] || exit 1
+
+config_load load_balancing
+config_get enabled "general" enabled 0
+config_foreach chech_interface "member"
+
+[ $configured -eq 1 ] || exit 4 #It's not load balancer interface
+[ -n "$INTERFACE" ] || exit 2
+
+if [ "$ACTION" == "ifup" ]; then
+  STATUS=`load_balancing check $INTERFACE`
+
+  [ "$STATUS" == "0" ] && exit 1 #Load balancer runnig. Do nothing.
+  [ "$enabled" == "1" ] || exit 5
+  [ -n "$DEVICE" ] || exit 3
+fi
+
+case "$ACTION" in
+	ifup|ifdown)
+    RUNNING=`ps  | grep load_balancing | grep -v grep`
+
+    [ -n "$RUNNING" ] && exit 1 #Other loadbalncing instance is running
+
+    logger -t load_balancing "$ACTION interface $INTERFACE (${DEVICE:-unknown})"
+    load_balancing $ACTION $INTERFACE
+	;;
+esac
+
+exit 0

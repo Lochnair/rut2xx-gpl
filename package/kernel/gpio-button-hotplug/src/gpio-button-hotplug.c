@@ -82,7 +82,7 @@ extern u64 uevent_next_seqnum(void);
 	}
 
 static struct bh_map button_map[] = {
-	BH_MAP(BTN_0,		"BTN_0"),
+	BH_MAP(BTN_0,		"input"),
 	BH_MAP(BTN_1,		"BTN_1"),
 	BH_MAP(BTN_2,		"BTN_2"),
 	BH_MAP(BTN_3,		"BTN_3"),
@@ -589,9 +589,21 @@ static int gpio_keys_polled_probe(struct platform_device *pdev)
 	if (pdata->enable)
 		pdata->enable(bdev->dev);
 
-	for (i = 0; i < pdata->nbuttons; i++)
+	for (i = 0; i < pdata->nbuttons; i++){
+		
+		//UPDATE FOR GPIO STATUS TRACKING FROM /sys/class/gpio
+		//exports gpio pins on buttons and input
+		struct gpio_keys_button *button = &pdata->buttons[i];
+		printk("GPIO BUTTON: %d", button->gpio);
+		gpio_request(button->gpio, "sysfs");       // Set up the gpioButton
+		gpio_direction_input(button->gpio);        // Set the button GPIO to be an input
+		gpio_sysfs_set_active_low(button->gpio, button->active_low); //Set active low state
+		gpio_set_debounce(button->gpio, button->debounce_interval);      // Debounce the button with a delay of 200ms
+		gpio_export(button->gpio, false);
+		//------------------------------
+		
 		gpio_keys_polled_check_state(&bdev->data[i]);
-
+	}
 	gpio_keys_polled_queue_work(bdev);
 
 	return ret;

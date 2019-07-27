@@ -1,0 +1,13 @@
+Index: quectel-CM/QMIThread.h
+===================================================================
+--- quectel-CM.orig/QMIThread.h
++++ quectel-CM/QMIThread.h
+@@ -6,7 +6,7 @@
+ #define CONFIG_SIM
+ #define CONFIG_APN
+ #define CONFIG_VERSION
+-#define CONFIG_DEFAULT_PDP 1
++#define CONFIG_DEFAULT_PDP 3
+ //#define CONFIG_IMSI_ICCID
+ #ifndef ANDROID
+ #define CONFIG_RESET_RADIO (45) //Reset Radiao(AT+CFUN=4,AT+CFUN=1) when cann not register network or setup data call in 45 seconds

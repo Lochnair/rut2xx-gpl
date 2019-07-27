@@ -60,6 +60,7 @@ check_mac80211_device() {
 }
 
 detect_mac80211() {
+	local ssid;
 	devidx=0
 	config_load wireless
 	while :; do
@@ -77,8 +78,8 @@ detect_mac80211() {
 		config_foreach check_mac80211_device wifi-device
 		[ "$found" -gt 0 ] && continue
 
-		mode_band="g"
-		channel="11"
+		mode_band="ng"
+		channel="auto"
 		htmode=""
 		ht_capab=""
 
@@ -86,8 +87,7 @@ detect_mac80211() {
 		iw phy "$dev" info | grep -q '2412 MHz' || { mode_band="a"; channel="36"; }
 
 		vht_cap=$(iw phy "$dev" info | grep -c 'VHT Capabilities')
-		cap_5ghz=$(iw phy "$dev" info | grep -c "Band 2")
-		[ "$vht_cap" -gt 0 -a "$cap_5ghz" -gt 0 ] && {
+		[ "$vht_cap" -gt 0 ] && {
 			mode_band="a";
 			channel="36"
 			htmode="VHT80"
@@ -95,37 +95,68 @@ detect_mac80211() {
 
 		[ -n $htmode ] && append ht_capab "	option htmode	$htmode" "$N"
 
-		if [ -x /usr/bin/readlink -a -h /sys/class/ieee80211/${dev} ]; then
+		if [ -x /usr/bin/readlink ]; then
 			path="$(readlink -f /sys/class/ieee80211/${dev}/device)"
-		else
-			path=""
-		fi
-		if [ -n "$path" ]; then
 			path="${path##/sys/devices/}"
 			dev_id="	option path	'$path'"
 		else
 			dev_id="	option macaddr	$(cat /sys/class/ieee80211/${dev}/macaddress)"
 		fi
 
+		if [ `which brand` ]; then
+			ssid=`brand 21`
+		else
+			ssid="Teltonika_Router"
+		fi
+
+		local router_name=$(/sbin/mnf_info name 2>/dev/null)
+		local router_mac=$(cat /sys/class/ieee80211/${dev}/macaddress)
+		local default_pass=$(/sbin/mnf_info wifi_pass 2>/dev/null)
+		local wifi_auth_lines=""
+
+		if [ -n "$router_name" ] && [ -n "$router_mac" ]; then
+			router_name=$(echo -n ${router_name} | head -c 6)
+			router_mac=$(echo -n ${router_mac} | sed 's/\://g' | tail -c 4 | tr '[a-f]' '[A-F]')
+			ssid="${router_name}_${router_mac}"
+		fi
+
+		IFS='' read -r -d '' wifi_auth_lines <<EOF
+	option encryption none
+EOF
+
+		[ -n "$default_pass" ] && [ ${#default_pass} -ge 8 ] && [ ${#default_pass} -le 64 ] && {
+			IFS='' read -r -d '' wifi_auth_lines <<EOF
+	option encryption 'psk2+tkip+ccmp'
+	option key '${default_pass}'
+EOF
+		}
+
 		cat <<EOF
-config wifi-device  radio$devidx
-	option type     mac80211
-	option channel  ${channel}
-	option hwmode	11${mode_band}
+config wifi-device	radio$devidx
+	option type	mac80211
+	option channel	${channel}
+	option hwmode	11${mode_11n}${mode_band}
+	option country	'00'
 $dev_id
+	list ht_capab	LDPC
+	list ht_capab	SHORT-GI-20
+	list ht_capab	SHORT-GI-40
+	list ht_capab	TX-STBC
+	list ht_capab	RX-STBC1
+	list ht_capab	DSSS_CCK-40
 $ht_capab
-	# REMOVE THIS LINE TO ENABLE WIFI:
-	option disabled 1
+
 
 config wifi-iface
-	option device   radio$devidx
-	option network  lan
-	option mode     ap
-	option ssid     OpenWrt
-	option encryption none
-
+	option device	radio$devidx
+	option network	lan
+	option mode	ap
+	option ssid	${ssid}
+	option isolate	0
+	option user_enable '1'
+	option hotspotid 'hotspot1'
+${wifi_auth_lines}
 EOF
 	devidx=$(($devidx + 1))
 	done
 }
-

@@ -1,0 +1,46 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2014 Teltonika
+
+GPIO_SCRIPT="/sbin/gpio.sh"
+IO_FILE="/tmp/io_state"
+USE_PROCD=1
+
+check_type()
+{
+	config_get enabled "$1" "enabled" "0"
+	config_get type "$1" "type"
+	if [ "$type" == "analog" ] && [ "$enabled" == "1" ]; then
+		k=$((k+1))
+	fi
+}
+
+start_service() {
+	DIN1=$($GPIO_SCRIPT get DIN1)
+	
+	echo "DIN1=$DIN1" > "$IO_FILE"
+
+	k=0
+	/usr/sbin/ioman_status_invert.sh
+	config_load ioman
+	config_foreach check_type "rule"
+
+	if [ "$k" != "0" ]; then
+		killall check_analog
+		sleep 5
+		echo "slept5" > /tmp/log/ioman.init.log
+		/usr/sbin/check_analog &
+		echo "if happened" >> /tmp/log/ioman.init.log
+	elif [ "$k" == "0" ]; then
+		killall check_analog
+		echo "elif happened" > /tmp/log/ioman.init.log
+	fi
+}
+
+reaload_service() {
+	killall check_analog
+	/usr/sbin/check_analog &
+}
+
+stop_service() {
+	killall check_analog
+}

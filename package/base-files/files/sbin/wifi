@@ -108,7 +108,7 @@ wifi_fixup_hwmode() {
 _wifi_updown() {
 	for device in ${2:-$DEVICES}; do (
 		config_get disabled "$device" disabled
-		[ "$disabled" = "1" ] && {
+		[ 1 == "$disabled" ] && {
 			echo "'$device' is disabled"
 			set disable
 		}
@@ -220,6 +220,39 @@ scan_wifi() {
 	config_load "${cfgfile:-wireless}"
 }
 
+turn_this_wifi_off() {
+	uci set wireless."$1".disabled="1"
+	uci set wireless."$1".user_enable="0"
+	config_get hotspot_id "$1" "hotspotid"
+
+	if [ -n "$hotspot_id" ]; then
+		hotspot_enabled=$(uci get coovachilli."$hotspot_id".enabled)
+		if [ "$hotspot_enabled" == "1" ]; then
+			uci set coovachilli."$hotspot_id".enabled="0"
+		fi
+	fi
+}
+
+turn_this_wifi_on() {
+	uci delete wireless."$1".disabled
+	uci set wireless."$1".user_enable="1"
+}
+
+turn_off_all_wifi() {
+	config_load wireless
+	config_foreach turn_this_wifi_off "wifi-iface"
+	uci commit wireless
+	luci-reload wireless > /dev/null &
+}
+
+turn_on_all_wifi() {
+	config_load wireless
+	config_foreach turn_this_wifi_on "wifi-iface"
+	uci commit wireless
+	luci-reload wireless > /dev/null &
+}
+
+
 DEVICES=
 DRIVERS=
 include /lib/wifi
@@ -227,6 +260,8 @@ scan_wifi
 
 case "$1" in
 	down) wifi_updown "disable" "$2";;
+	turn_off_all_wifi) turn_off_all_wifi;;
+	turn_on_all_wifi) turn_on_all_wifi;;
 	detect) wifi_detect "$2";;
 	status) ubus_wifi_cmd "status" "$2";;
 	reload) wifi_reload "$2";;
